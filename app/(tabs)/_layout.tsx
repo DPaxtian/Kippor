@@ -1,33 +1,67 @@
 import { Tabs } from 'expo-router';
-import React from 'react';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { getPaletteTokens } from '@/constants/palette';
+import { useUIStore } from '@/store/ui-store';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
+  const colorScheme = useUIStore((s) => s.colorScheme);
+  const accentPalette = useUIStore((s) => s.accentPalette);
+  const isDark = colorScheme === 'dark';
+  const { color: primaryColor } = getPaletteTokens(accentPalette, colorScheme);
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        headerShown: false,
+        tabBarActiveTintColor: primaryColor,
+        tabBarInactiveTintColor: isDark ? '#7A6E66' : '#9A8A80',
+        tabBarStyle: {
+          backgroundColor: isDark ? '#211C19' : '#FFFFFF',
+          borderTopColor: isDark ? '#332A26' : '#E8E0D8',
+        },
+        headerStyle: {
+          backgroundColor: isDark ? '#211C19' : '#FFFFFF',
+        },
+        headerTintColor: isDark ? '#F4EDE7' : '#1F1815',
+        headerShadowVisible: false,
+        headerShown: true,
         tabBarButton: HapticTab,
       }}>
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          title: 'Pedidos',
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={26} name="cart.fill" color={color} />
+          ),
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="catalog"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: 'Catálogo',
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={26} name="tag.fill" color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="reports"
+        options={{
+          title: 'Reportes',
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={26} name="chart.bar.fill" color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: 'Ajustes',
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={26} name="gearshape.fill" color={color} />
+          ),
         }}
       />
     </Tabs>

@@ -18,6 +18,27 @@ const MAPPING = {
   'paperplane.fill': 'send',
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',
+  // Kippor tabs
+  'cart.fill': 'shopping-cart',
+  'tag.fill': 'label',
+  'chart.bar.fill': 'bar-chart',
+  'gearshape.fill': 'settings',
+  // Acciones
+  'plus': 'add',
+  'trash.fill': 'delete',
+  'pencil': 'edit',
+  'xmark': 'close',
+  'checkmark': 'check',
+  'photo': 'photo-library',
+  'camera.fill': 'camera-alt',
+  'arrow.left': 'arrow-back',
+  'clock.fill': 'schedule',
+  'person.fill': 'person',
+  'location.fill': 'location-on',
+  'creditcard.fill': 'credit-card',
+  'banknote.fill': 'payments',
+  'iphone': 'smartphone',
+  'shippingbox.fill': 'local-shipping',
 } as IconMapping;
 
 /**

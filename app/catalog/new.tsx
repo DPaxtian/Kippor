@@ -1,0 +1,131 @@
+import * as ImagePicker from 'expo-image-picker';
+import { Image } from 'expo-image';
+import { router, useNavigation } from 'expo-router';
+import { useLayoutEffect, useState } from 'react';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { IconSymbol } from '@/components/ui/icon-symbol';
+import { useAccentColor } from '@/hooks/use-accent-color';
+import { useProductsStore } from '@/store/products-store';
+import { useUIStore } from '@/store/ui-store';
+
+const EMOJI_OPTIONS = ['🧁', '🎂', '🍰', '🍫', '🍪', '🍞', '🥐', '🍩', '🌸', '🍋', '🍓', '🍌'];
+
+export default function NewProductScreen() {
+  const { addProduct } = useProductsStore();
+  const { colorScheme } = useUIStore();
+  const { color, soft } = useAccentColor();
+  const navigation = useNavigation();
+
+  const [name, setName] = useState('');
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerLeft: () => (
+        <Pressable onPress={() => router.back()} className="px-1 active:opacity-60">
+          <Text style={{ color }} className="text-base font-medium">Cancelar</Text>
+        </Pressable>
+      ),
+    });
+  }, [navigation, color]);
+  const [price, setPrice] = useState('');
+  const [description, setDescription] = useState('');
+  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [emoji, setEmoji] = useState('🧁');
+  const [saving, setSaving] = useState(false);
+
+  const iconColor = colorScheme === 'dark' ? '#7A6E66' : '#9A8A80';
+
+  async function pickImage() {
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: 'images', allowsEditing: true, aspect: [1, 1], quality: 0.7 });
+    if (!result.canceled) setImageUri(result.assets[0].uri);
+  }
+  async function takePhoto() {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') { Alert.alert('Permiso requerido', 'Se necesita acceso a la cámara.'); return; }
+      const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.7 });
+      if (!result.canceled) setImageUri(result.assets[0].uri);
+    } catch {
+      Alert.alert('Cámara no disponible', 'La cámara no está disponible en el simulador. Prueba en un dispositivo físico.');
+    }
+  }
+  async function handleSave() {
+    if (!name.trim()) { Alert.alert('Campo requerido', 'El nombre del producto es obligatorio.'); return; }
+    const parsedPrice = parseFloat(price.replace(',', '.'));
+    if (isNaN(parsedPrice) || parsedPrice <= 0) { Alert.alert('Precio inválido', 'Ingresa un precio válido mayor a 0.'); return; }
+    setSaving(true);
+    try {
+      await addProduct({ name: name.trim(), price: parsedPrice, description: description.trim() || null, image_uri: imageUri, emoji });
+      router.back();
+    } catch { Alert.alert('Error', 'No se pudo guardar el producto.'); }
+    finally { setSaving(false); }
+  }
+
+  return (
+    <SafeAreaView className="flex-1 bg-surface dark:bg-surface-dark" edges={['bottom']}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} className="flex-1">
+        <ScrollView contentContainerClassName="p-4 gap-5">
+          <View className="items-center">
+            {imageUri ? (
+              <Pressable onPress={pickImage} className="active:opacity-70">
+                <Image source={{ uri: imageUri }} className="w-32 h-32 rounded-2xl" contentFit="cover" />
+              </Pressable>
+            ) : (
+              <View style={{ backgroundColor: soft }} className="w-24 h-24 rounded-2xl items-center justify-center mb-3">
+                <Text style={{ fontSize: 48 }}>{emoji}</Text>
+              </View>
+            )}
+            <View className="flex-row gap-2 mt-2">
+              <Pressable onPress={takePhoto} className="flex-row items-center gap-1.5 bg-surface-elevated dark:bg-surface-elevated-dark border border-border dark:border-border-dark rounded-xl px-3 py-2 active:opacity-70">
+                <IconSymbol name="camera.fill" size={14} color={iconColor} />
+                <Text className="text-sm text-content-muted dark:text-content-muted-dark">Cámara</Text>
+              </Pressable>
+              <Pressable onPress={pickImage} className="flex-row items-center gap-1.5 bg-surface-elevated dark:bg-surface-elevated-dark border border-border dark:border-border-dark rounded-xl px-3 py-2 active:opacity-70">
+                <IconSymbol name="photo" size={14} color={iconColor} />
+                <Text className="text-sm text-content-muted dark:text-content-muted-dark">Galería</Text>
+              </Pressable>
+            </View>
+          </View>
+
+          <View>
+            <Text className="text-sm font-medium text-content-muted dark:text-content-muted-dark mb-2">Imagen rápida</Text>
+            <View className="flex-row flex-wrap gap-2">
+              {EMOJI_OPTIONS.map((e) => (
+                <Pressable key={e} onPress={() => { setEmoji(e); setImageUri(null); }}
+                  style={emoji === e && !imageUri ? { backgroundColor: soft, borderWidth: 2, borderColor: color } : undefined}
+                  className={`w-12 h-12 rounded-xl items-center justify-center ${emoji === e && !imageUri ? '' : 'bg-surface-muted dark:bg-surface-muted-dark border border-transparent'}`}
+                >
+                  <Text style={{ fontSize: 24 }}>{e}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
+          <View>
+            <Text className="text-sm font-medium text-content-muted dark:text-content-muted-dark mb-1.5">
+              Nombre <Text style={{ color }}>*</Text>
+            </Text>
+            <TextInput value={name} onChangeText={setName} placeholder="Ej. Pastel de chocolate" placeholderTextColor="#9A8A80" className="bg-surface-elevated dark:bg-surface-elevated-dark border border-border dark:border-border-dark rounded-xl px-4 py-3 text-base text-content dark:text-content-dark" />
+          </View>
+          <View>
+            <Text className="text-sm font-medium text-content-muted dark:text-content-muted-dark mb-1.5">
+              Precio <Text style={{ color }}>*</Text>
+            </Text>
+            <TextInput value={price} onChangeText={setPrice} placeholder="0.00" placeholderTextColor="#9A8A80" keyboardType="decimal-pad" className="bg-surface-elevated dark:bg-surface-elevated-dark border border-border dark:border-border-dark rounded-xl px-4 py-3 text-base text-content dark:text-content-dark" />
+          </View>
+          <View>
+            <Text className="text-sm font-medium text-content-muted dark:text-content-muted-dark mb-1.5">
+              Descripción <Text className="text-content-subtle dark:text-content-subtle-dark">(opcional)</Text>
+            </Text>
+            <TextInput value={description} onChangeText={setDescription} placeholder="Sabores, tamaños, ingredientes..." placeholderTextColor="#9A8A80" multiline numberOfLines={3} textAlignVertical="top" className="bg-surface-elevated dark:bg-surface-elevated-dark border border-border dark:border-border-dark rounded-xl px-4 py-3 text-base text-content dark:text-content-dark min-h-[80px]" />
+          </View>
+
+          <Pressable onPress={handleSave} disabled={saving} style={{ backgroundColor: color }} className="rounded-xl py-4 items-center active:opacity-80 mt-2">
+            <Text className="text-white font-semibold text-base">{saving ? 'Guardando...' : 'Guardar producto'}</Text>
+          </Pressable>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}
