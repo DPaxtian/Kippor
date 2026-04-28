@@ -46,11 +46,25 @@ export interface Order {
   notes: string | null;
   subtotal: number;
   total: number;
+  delivery_date: string | null;    // ISO 8601, fecha programada de entrega
+  advance_payment: number;         // adelanto recibido, default 0
   created_at: string; // ISO 8601
 }
 
 export type CreateOrderInput = Omit<Order, 'id' | 'subtotal' | 'total' | 'created_at'>;
 export type UpdateOrderInput = Partial<Omit<Order, 'id' | 'created_at'>>;
+
+// ─── Etiquetas ────────────────────────────────────────────────────────────────
+
+export interface Label {
+  id: number;
+  name: string;
+  color: string; // hex, ej. '#E97864'
+  created_at: string; // ISO 8601
+}
+
+export type CreateLabelInput = Pick<Label, 'name' | 'color'>;
+export type UpdateLabelInput = Partial<Pick<Label, 'name' | 'color'>>;
 
 // ─── Reportes ─────────────────────────────────────────────────────────────────
 
@@ -61,6 +75,8 @@ export interface SalesSummary {
   paidCount: number;
   unpaidCount: number;
   pendingDeliveries: number;
+  totalAdvancePayments: number; // suma de adelantos recibidos en el período
+  pendingBalance: number;       // saldo pendiente de cobrar (unpaid total - adelantos)
 }
 
 export interface ProductStat {

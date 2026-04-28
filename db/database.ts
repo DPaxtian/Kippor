@@ -1,7 +1,7 @@
 import * as SQLite from 'expo-sqlite';
 
 const DB_NAME = 'kippor.db';
-const LATEST_VERSION = 2;
+const LATEST_VERSION = 4;
 
 // Singleton: una sola instancia de la DB por proceso
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
@@ -16,6 +16,24 @@ export function getDatabase(): Promise<SQLite.SQLiteDatabase> {
 // ─── Migraciones ──────────────────────────────────────────────────────────────
 
 const MIGRATIONS: Record<number, string> = {
+  4: `
+    ALTER TABLE orders ADD COLUMN delivery_date    TEXT;
+    ALTER TABLE orders ADD COLUMN advance_payment  REAL NOT NULL DEFAULT 0;
+  `,
+  3: `
+    CREATE TABLE IF NOT EXISTS labels (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      name       TEXT    NOT NULL UNIQUE,
+      color      TEXT    NOT NULL,
+      created_at TEXT    NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS order_labels (
+      order_id  INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+      label_id  INTEGER NOT NULL REFERENCES labels(id) ON DELETE CASCADE,
+      PRIMARY KEY (order_id, label_id)
+    );
+  `,
   2: `
     ALTER TABLE products ADD COLUMN emoji TEXT;
   `,

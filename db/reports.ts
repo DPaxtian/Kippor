@@ -1,12 +1,24 @@
-import { subDays, subWeeks, subMonths, subYears, format, startOfDay, endOfDay } from 'date-fns';
+import { subDays, format, startOfDay, endOfDay } from 'date-fns';
 import type { SQLiteDatabase } from 'expo-sqlite';
 import type { ProductStat, SalesSummary } from '@/types';
+
+// Construye el JOIN y cláusula WHERE para filtrar por etiqueta opcionalmente
+function labelJoin(labelId?: number): { join: string; cond: string; param: number[] } {
+  if (labelId === undefined) return { join: '', cond: '', param: [] };
+  return {
+    join: 'INNER JOIN order_labels _ol ON _ol.order_id = o.id',
+    cond: 'AND _ol.label_id = ?',
+    param: [labelId],
+  };
+}
 
 export async function getSalesSummary(
   db: SQLiteDatabase,
   from: string,
-  to: string
+  to: string,
+  labelId?: number
 ): Promise<SalesSummary> {
+  const { join, cond, param } = labelJoin(labelId);
   const row = await db.getFirstAsync<{
     totalOrders: number;
     totalRevenue: number | null;
@@ -14,17 +26,21 @@ export async function getSalesSummary(
     paidCount: number;
     unpaidCount: number;
     pendingDeliveries: number;
+    totalAdvancePayments: number | null;
+    pendingBalance: number | null;
   }>(
     `SELECT
-       COUNT(*)                                                          AS totalOrders,
-       SUM(total)                                                        AS totalRevenue,
-       AVG(total)                                                        AS avgOrderValue,
-       SUM(CASE WHEN payment_status  = 'paid'      THEN 1 ELSE 0 END)   AS paidCount,
-       SUM(CASE WHEN payment_status  = 'unpaid'    THEN 1 ELSE 0 END)   AS unpaidCount,
-       SUM(CASE WHEN delivery_status = 'pending'   THEN 1 ELSE 0 END)   AS pendingDeliveries
-     FROM orders
-     WHERE created_at >= ? AND created_at <= ?`,
-    [from, to]
+       COUNT(*)                                                                                           AS totalOrders,
+       SUM(o.total)                                                                                       AS totalRevenue,
+       AVG(o.total)                                                                                       AS avgOrderValue,
+       SUM(CASE WHEN o.payment_status  = 'paid'    THEN 1 ELSE 0 END)                                    AS paidCount,
+       SUM(CASE WHEN o.payment_status  = 'unpaid'  THEN 1 ELSE 0 END)                                    AS unpaidCount,
+       SUM(CASE WHEN o.delivery_status = 'pending' THEN 1 ELSE 0 END)                                    AS pendingDeliveries,
+       SUM(o.advance_payment)                                                                             AS totalAdvancePayments,
+       SUM(CASE WHEN o.payment_status = 'unpaid' THEN o.total - o.advance_payment ELSE 0 END)            AS pendingBalance
+     FROM orders o ${join}
+     WHERE o.created_at >= ? AND o.created_at <= ? ${cond}`,
+    [...param, from, to]
   );
 
   return {
@@ -34,13 +50,16 @@ export async function getSalesSummary(
     paidCount: row?.paidCount ?? 0,
     unpaidCount: row?.unpaidCount ?? 0,
     pendingDeliveries: row?.pendingDeliveries ?? 0,
+    totalAdvancePayments: row?.totalAdvancePayments ?? 0,
+    pendingBalance: row?.pendingBalance ?? 0,
   };
 }
 
 export async function getPreviousPeriodRevenue(
   db: SQLiteDatabase,
   from: string,
-  to: string
+  to: string,
+  labelId?: number
 ): Promise<number> {
   const fromDate = new Date(from);
   const toDate = new Date(to);
@@ -49,16 +68,19 @@ export async function getPreviousPeriodRevenue(
   const prevTo = new Date(fromDate.getTime() - 1);
   const prevFrom = new Date(prevTo.getTime() - spanMs);
 
+  const { join, cond, param } = labelJoin(labelId);
   const row = await db.getFirstAsync<{ rev: number | null }>(
-    `SELECT SUM(total) AS rev FROM orders WHERE created_at >= ? AND created_at <= ?`,
-    [prevFrom.toISOString(), prevTo.toISOString()]
+    `SELECT SUM(o.total) AS rev FROM orders o ${join}
+     WHERE o.created_at >= ? AND o.created_at <= ? ${cond}`,
+    [...param, prevFrom.toISOString(), prevTo.toISOString()]
   );
   return row?.rev ?? 0;
 }
 
 export async function getWeeklyRevenue(
   db: SQLiteDatabase,
-  anchorDate: Date = new Date()
+  anchorDate: Date = new Date(),
+  labelId?: number
 ): Promise<number[]> {
   const days: string[] = [];
   for (let i = 6; i >= 0; i--) {
@@ -68,12 +90,13 @@ export async function getWeeklyRevenue(
   const from = startOfDay(subDays(anchorDate, 6)).toISOString();
   const to = endOfDay(anchorDate).toISOString();
 
+  const { join, cond, param } = labelJoin(labelId);
   const rows = await db.getAllAsync<{ day: string; rev: number }>(
-    `SELECT date(created_at) AS day, SUM(total) AS rev
-     FROM orders
-     WHERE created_at >= ? AND created_at <= ?
+    `SELECT date(o.created_at) AS day, SUM(o.total) AS rev
+     FROM orders o ${join}
+     WHERE o.created_at >= ? AND o.created_at <= ? ${cond}
      GROUP BY day`,
-    [from, to]
+    [...param, from, to]
   );
 
   const map: Record<string, number> = {};
@@ -84,19 +107,21 @@ export async function getWeeklyRevenue(
 export async function getTopProducts(
   db: SQLiteDatabase,
   from: string,
-  to: string
+  to: string,
+  labelId?: number
 ): Promise<ProductStat[]> {
+  const { join, cond, param } = labelJoin(labelId);
   return db.getAllAsync<ProductStat>(
     `SELECT
        oi.product_name,
        SUM(oi.quantity) AS totalQuantity,
        SUM(oi.subtotal) AS totalRevenue
      FROM order_items oi
-     JOIN orders o ON o.id = oi.order_id
-     WHERE o.created_at >= ? AND o.created_at <= ?
+     JOIN orders o ON o.id = oi.order_id ${join}
+     WHERE o.created_at >= ? AND o.created_at <= ? ${cond}
      GROUP BY oi.product_name
      ORDER BY totalRevenue DESC
      LIMIT 10`,
-    [from, to]
+    [...param, from, to]
   );
 }

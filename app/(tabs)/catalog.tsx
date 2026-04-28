@@ -1,5 +1,6 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ProductCard } from '@/components/catalog/ProductCard';
@@ -8,6 +9,7 @@ import { useAccentColor } from '@/hooks/use-accent-color';
 import { useProductsStore } from '@/store/products-store';
 
 export default function CatalogScreen() {
+  const { t } = useTranslation();
   const { products, isLoading, fetchProducts } = useProductsStore();
   const { color, soft } = useAccentColor();
 
@@ -31,7 +33,7 @@ export default function CatalogScreen() {
           contentContainerStyle={{ paddingTop: 16, paddingBottom: 96 }}
           ListHeaderComponent={
             <Text className="text-xs font-semibold text-content-muted dark:text-content-muted-dark uppercase tracking-wider mb-3 px-4">
-              {products.length} {products.length === 1 ? 'producto' : 'productos'} activos
+              {t('catalog.count', { count: products.length })}
             </Text>
           }
           ListEmptyComponent={
@@ -39,9 +41,9 @@ export default function CatalogScreen() {
               <View style={{ backgroundColor: soft }} className="w-20 h-20 rounded-2xl items-center justify-center mb-5">
                 <IconSymbol name="tag.fill" size={40} color={color} />
               </View>
-              <Text className="text-xl font-bold text-content dark:text-content-dark text-center mb-2">Sin productos</Text>
+              <Text className="text-xl font-bold text-content dark:text-content-dark text-center mb-2">{t('catalog.empty')}</Text>
               <Text className="text-base text-content-muted dark:text-content-muted-dark text-center">
-                Toca + para agregar tu primer producto al catálogo.
+                {t('catalog.emptySubtitle')}
               </Text>
             </View>
           }

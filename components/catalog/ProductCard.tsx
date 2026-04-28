@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import { Pressable, Text, View } from 'react-native';
 import { useAccentColor } from '@/hooks/use-accent-color';
-import { formatCurrency } from '@/utils/format';
+import { useCurrency } from '@/hooks/use-currency';
 import type { Product } from '@/types';
 import type { StyleProp, ViewStyle } from 'react-native';
 
@@ -13,6 +13,7 @@ interface ProductCardProps {
 
 export function ProductCard({ product, onPress, style }: ProductCardProps) {
   const { color, soft } = useAccentColor();
+  const { fmt } = useCurrency();
 
   return (
     <Pressable
@@ -32,7 +33,7 @@ export function ProductCard({ product, onPress, style }: ProductCardProps) {
           {product.name}
         </Text>
         <Text style={{ color }} className="text-base font-bold mt-1">
-          {formatCurrency(product.price)}
+          {fmt(product.price)}
         </Text>
       </View>
     </Pressable>

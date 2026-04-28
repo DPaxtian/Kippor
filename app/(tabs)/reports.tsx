@@ -1,25 +1,37 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from 'expo-router';
 import { DateRangePicker } from '@/components/reports/DateRangePicker';
 import { SparklineChart } from '@/components/reports/SparklineChart';
 import { getDatabase } from '@/db/database';
 import { getSalesSummary, getTopProducts, getWeeklyRevenue, getPreviousPeriodRevenue } from '@/db/reports';
 import { useAccentColor } from '@/hooks/use-accent-color';
+import { useCurrency } from '@/hooks/use-currency';
+import { LabelFilterBar } from '@/components/labels/LabelFilterBar';
+import { useLabelsStore } from '@/store/labels-store';
 import { useUIStore } from '@/store/ui-store';
-import { formatCurrency } from '@/utils/format';
 import { getDateRange } from '@/utils/dates';
 import type { ProductStat, ReportPeriod, SalesSummary } from '@/types';
 
-const PERIOD_LABELS: Record<ReportPeriod, string> = {
-  today: 'hoy', week: 'esta semana', month: 'este mes', year: 'este año', custom: 'período',
-};
-const WEEK_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
-
 export default function ReportsScreen() {
+  const { t } = useTranslation();
   const { reportPeriod, reportDateRange, setReportPeriod, setReportDateRange } = useUIStore();
   const { color, soft } = useAccentColor();
+  const { fmt } = useCurrency();
+  const { labels, fetchLabels } = useLabelsStore();
 
+  const PERIOD_LABELS: Record<ReportPeriod, string> = {
+    today: t('reports.periodToday'),
+    week: t('reports.periodWeek'),
+    month: t('reports.periodMonth'),
+    year: t('reports.periodYear'),
+    custom: t('reports.periodCustom'),
+  };
+  const WEEK_LABELS = t('reports.weekDays', { returnObjects: true }) as string[];
+
+  const [labelFilter, setLabelFilter] = useState<number[]>([]);
   const [summary, setSummary] = useState<SalesSummary | null>(null);
   const [topProducts, setTopProducts] = useState<ProductStat[]>([]);
   const [weeklyRevenue, setWeeklyRevenue] = useState<number[]>(Array(7).fill(0));
@@ -28,17 +40,20 @@ export default function ReportsScreen() {
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
 
-  useEffect(() => { loadData(); }, [reportDateRange]); // eslint-disable-line
+  useEffect(() => { fetchLabels(); }, []); // eslint-disable-line
+  useEffect(() => { loadData(); }, [reportDateRange, labelFilter]); // eslint-disable-line
+  useFocusEffect(useCallback(() => { loadData(); }, [reportDateRange, labelFilter])); // eslint-disable-line
 
   async function loadData() {
     setIsLoading(true);
     try {
       const db = await getDatabase();
+      const labelId = labelFilter.length === 1 ? labelFilter[0] : undefined;
       const [s, products, weekly, prevRev] = await Promise.all([
-        getSalesSummary(db, reportDateRange.from, reportDateRange.to),
-        getTopProducts(db, reportDateRange.from, reportDateRange.to),
-        getWeeklyRevenue(db, new Date(reportDateRange.to)),
-        getPreviousPeriodRevenue(db, reportDateRange.from, reportDateRange.to),
+        getSalesSummary(db, reportDateRange.from, reportDateRange.to, labelId),
+        getTopProducts(db, reportDateRange.from, reportDateRange.to, labelId),
+        getWeeklyRevenue(db, new Date(reportDateRange.to), labelId),
+        getPreviousPeriodRevenue(db, reportDateRange.from, reportDateRange.to, labelId),
       ]);
       setSummary(s); setTopProducts(products); setWeeklyRevenue(weekly); setPreviousRevenue(prevRev);
     } catch (e) { console.error('Error loading reports:', e); }
@@ -70,6 +85,7 @@ export default function ReportsScreen() {
           onCustomFromChange={(v) => { setCustomFrom(v); }}
           onCustomToChange={(v) => { setCustomTo(v); handleCustomDateApply(); }}
         />
+        <LabelFilterBar labels={labels} selectedIds={labelFilter} onChange={setLabelFilter} label={t('reports.filterLabel')} />
 
         {isLoading ? (
           <View className="py-16 items-center"><ActivityIndicator size="large" color={color} /></View>
@@ -78,24 +94,24 @@ export default function ReportsScreen() {
             {/* Hero card */}
             <View style={{ backgroundColor: color }} className="rounded-2xl p-5 mb-4">
               <Text className="text-white/70 text-xs font-semibold uppercase tracking-wider mb-1">
-                Ingresos {PERIOD_LABELS[reportPeriod]}
+                {t('reports.revenue', { period: PERIOD_LABELS[reportPeriod] })}
               </Text>
               <Text className="text-white text-4xl font-bold tracking-tight mb-1">
-                {formatCurrency(summary.totalRevenue)}
+                {fmt(summary.totalRevenue)}
               </Text>
               {previousRevenue > 0 || summary.totalRevenue > 0 ? (
                 <Text className="text-white/60 text-sm mb-4">
                   {previousRevenue === 0
-                    ? 'Sin datos del período anterior'
+                    ? t('reports.noPreviousData')
                     : (() => {
                         const pct = ((summary.totalRevenue - previousRevenue) / previousRevenue) * 100;
                         const sign = pct >= 0 ? '+' : '';
-                        return `${sign}${pct.toFixed(0)}% vs período anterior`;
+                        return t('reports.vsLastPeriod', { sign, pct: pct.toFixed(0) });
                       })()
                   }
                 </Text>
               ) : (
-                <Text className="text-white/60 text-sm mb-4">Sin datos anteriores</Text>
+                <Text className="text-white/60 text-sm mb-4">{t('reports.noPreviousDataShort')}</Text>
               )}
               <SparklineChart data={weeklyRevenue} labels={WEEK_LABELS} />
             </View>
@@ -103,26 +119,26 @@ export default function ReportsScreen() {
             {/* 2×2 grid */}
             <View className="flex-row gap-3 mb-3">
               <View className="flex-1 bg-surface-elevated dark:bg-surface-elevated-dark border border-border dark:border-border-dark rounded-2xl p-4">
-                <Text className="text-content-muted dark:text-content-muted-dark text-xs font-semibold uppercase tracking-wider mb-1">Pedidos</Text>
+                <Text className="text-content-muted dark:text-content-muted-dark text-xs font-semibold uppercase tracking-wider mb-1">{t('reports.orders')}</Text>
                 <Text className="text-content dark:text-content-dark text-2xl font-bold">{summary.totalOrders}</Text>
               </View>
               <View className="flex-1 bg-surface-elevated dark:bg-surface-elevated-dark border border-border dark:border-border-dark rounded-2xl p-4">
-                <Text className="text-content-muted dark:text-content-muted-dark text-xs font-semibold uppercase tracking-wider mb-1">Ticket prom.</Text>
+                <Text className="text-content-muted dark:text-content-muted-dark text-xs font-semibold uppercase tracking-wider mb-1">{t('reports.avgTicket')}</Text>
                 <Text className="text-content dark:text-content-dark text-2xl font-bold" numberOfLines={1} adjustsFontSizeToFit>
-                  {formatCurrency(summary.avgOrderValue)}
+                  {fmt(summary.avgOrderValue)}
                 </Text>
               </View>
             </View>
             <View className="flex-row gap-3 mb-5">
               <View className="flex-1 bg-warning-soft dark:bg-warning-soft-dark border border-warning/20 dark:border-warning-dark/20 rounded-2xl p-4">
-                <Text className="text-warning dark:text-warning-dark text-xs font-semibold uppercase tracking-wider mb-1">Por cobrar</Text>
+                <Text className="text-warning dark:text-warning-dark text-xs font-semibold uppercase tracking-wider mb-1">{t('reports.toCollect')}</Text>
                 <Text className="text-warning dark:text-warning-dark text-2xl font-bold">{summary.unpaidCount}</Text>
-                <Text className="text-warning/70 dark:text-warning-dark/70 text-xs mt-0.5">pedidos pendientes</Text>
+                <Text className="text-warning/70 dark:text-warning-dark/70 text-xs mt-0.5">{t('reports.pendingOrders')}</Text>
               </View>
               <View className="flex-1 bg-warning-soft dark:bg-warning-soft-dark border border-warning/20 dark:border-warning-dark/20 rounded-2xl p-4">
-                <Text className="text-warning dark:text-warning-dark text-xs font-semibold uppercase tracking-wider mb-1">Por entregar</Text>
+                <Text className="text-warning dark:text-warning-dark text-xs font-semibold uppercase tracking-wider mb-1">{t('reports.toDeliver')}</Text>
                 <Text className="text-warning dark:text-warning-dark text-2xl font-bold">{summary.pendingDeliveries}</Text>
-                <Text className="text-warning/70 dark:text-warning-dark/70 text-xs mt-0.5">envíos pendientes</Text>
+                <Text className="text-warning/70 dark:text-warning-dark/70 text-xs mt-0.5">{t('reports.pendingShipping')}</Text>
               </View>
             </View>
 
@@ -130,7 +146,7 @@ export default function ReportsScreen() {
             {topProducts.length > 0 && (
               <>
                 <Text className="text-xs font-semibold text-content-muted dark:text-content-muted-dark uppercase tracking-wider mb-3">
-                  Más vendidos
+                  {t('reports.topProducts')}
                 </Text>
                 <View className="bg-surface-elevated dark:bg-surface-elevated-dark rounded-2xl border border-border dark:border-border-dark overflow-hidden">
                   {topProducts.map((product, index) => (
@@ -151,7 +167,7 @@ export default function ReportsScreen() {
                       </View>
                       <View className="items-end flex-shrink-0">
                         <Text className="text-sm font-bold text-content dark:text-content-dark">{product.totalQuantity}</Text>
-                        <Text className="text-xs text-content-subtle dark:text-content-subtle-dark">{formatCurrency(product.totalRevenue)}</Text>
+                        <Text className="text-xs text-content-subtle dark:text-content-subtle-dark">{fmt(product.totalRevenue)}</Text>
                       </View>
                     </View>
                   ))}
@@ -161,7 +177,7 @@ export default function ReportsScreen() {
 
             {summary.totalOrders === 0 && (
               <View className="items-center py-16">
-                <Text className="text-content-muted dark:text-content-muted-dark text-base text-center">Sin ventas en este período.</Text>
+                <Text className="text-content-muted dark:text-content-muted-dark text-base text-center">{t('reports.noSales')}</Text>
               </View>
             )}
           </>

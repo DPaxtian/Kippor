@@ -1,5 +1,5 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { router, useNavigation } from 'expo-router';
+import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { useEffect, useLayoutEffect, useReducer, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native';
@@ -15,7 +15,7 @@ import { useOrdersStore } from '@/store/orders-store';
 import { useProductsStore } from '@/store/products-store';
 import { useUIStore } from '@/store/ui-store';
 import type { CreateOrderItemInput, DeliveryStatus, PaymentMethod, PaymentStatus, Product } from '@/types';
-import { scheduleDeliveryNotification } from '@/utils/notifications';
+import { cancelDeliveryNotification, scheduleDeliveryNotification } from '@/utils/notifications';
 import { format } from 'date-fns';
 import { useDateLocale, useDateFormat } from '@/hooks/use-locale';
 
@@ -30,17 +30,13 @@ type FormAction =
   | { type: 'SET_FIELD'; field: keyof Omit<FormState, 'items'>; value: string | boolean }
   | { type: 'ADD_ITEM'; product: Product }
   | { type: 'REMOVE_ITEM'; index: number }
-  | { type: 'UPDATE_QTY'; index: number; delta: number };
-
-const initialState: FormState = {
-  clientName: '', clientAddress: '', hasDelivery: false, shippingCost: '',
-  deliveryStatus: 'pending', paymentStatus: 'unpaid', paymentMethod: 'cash', notes: '', items: [],
-  isScheduled: false, deliveryDate: '', advancePayment: '',
-};
+  | { type: 'UPDATE_QTY'; index: number; delta: number }
+  | { type: 'LOAD'; state: FormState };
 
 function formReducer(state: FormState, action: FormAction): FormState {
   switch (action.type) {
     case 'SET_FIELD': return { ...state, [action.field]: action.value };
+    case 'LOAD': return action.state;
     case 'ADD_ITEM': {
       const existing = state.items.findIndex((i) => i.product.id === action.product.id);
       if (existing >= 0) {
@@ -62,23 +58,32 @@ function formReducer(state: FormState, action: FormAction): FormState {
   }
 }
 
-export default function NewOrderScreen() {
+const emptyState: FormState = {
+  clientName: '', clientAddress: '', hasDelivery: false, shippingCost: '',
+  deliveryStatus: 'pending', paymentStatus: 'unpaid', paymentMethod: 'cash', notes: '', items: [],
+  isScheduled: false, deliveryDate: '', advancePayment: '',
+};
+
+export default function EditOrderScreen() {
   const { t } = useTranslation();
   const dateLocale = useDateLocale();
   const dateFormat = useDateFormat();
-  const { createOrder } = useOrdersStore();
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { updateOrder, selectedOrder, selectedOrderItems, selectedOrderLabels, fetchOrderById } = useOrdersStore();
   const { products, fetchProducts } = useProductsStore();
   const { fetchLabels } = useLabelsStore();
   const { colorScheme } = useUIStore();
   const { fmt, symbol } = useCurrency();
   const { color, soft } = useAccentColor();
   const navigation = useNavigation();
-  const [state, dispatch] = useReducer(formReducer, initialState);
+
+  const [state, dispatch] = useReducer(formReducer, emptyState);
   const [labelIds, setLabelIds] = useState<number[]>([]);
   const [saving, setSaving] = useState(false);
   const [showProductPicker, setShowProductPicker] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [tempDate, setTempDate] = useState(new Date());
+  const [loaded, setLoaded] = useState(false);
 
   const iconColor = colorScheme === 'dark' ? '#7A6E66' : '#9A8A80';
 
@@ -95,6 +100,48 @@ export default function NewOrderScreen() {
 
   useEffect(() => { fetchProducts(); fetchLabels(); }, [fetchProducts, fetchLabels]);
 
+  useEffect(() => {
+    if (!selectedOrder || selectedOrder.id !== Number(id)) {
+      fetchOrderById(Number(id));
+    }
+  }, [id]); // eslint-disable-line
+
+  // Precarga el formulario cuando el pedido está disponible
+  useEffect(() => {
+    if (!selectedOrder || selectedOrder.id !== Number(id) || loaded) return;
+    dispatch({
+      type: 'LOAD',
+      state: {
+        clientName: selectedOrder.client_name,
+        clientAddress: selectedOrder.client_address ?? '',
+        hasDelivery: selectedOrder.has_delivery === 1,
+        shippingCost: selectedOrder.shipping_cost > 0 ? String(selectedOrder.shipping_cost) : '',
+        deliveryStatus: selectedOrder.delivery_status,
+        paymentStatus: selectedOrder.payment_status,
+        paymentMethod: selectedOrder.payment_method,
+        notes: selectedOrder.notes ?? '',
+        isScheduled: !!selectedOrder.delivery_date,
+        deliveryDate: selectedOrder.delivery_date ?? '',
+        advancePayment: selectedOrder.advance_payment > 0 ? String(selectedOrder.advance_payment) : '',
+        items: selectedOrderItems.map((item) => ({
+          product: {
+            id: item.product_id ?? 0,
+            name: item.product_name,
+            price: item.product_price,
+            emoji: null,
+            image_uri: null,
+            description: null,
+            is_active: 1,
+            created_at: '',
+          },
+          quantity: item.quantity,
+        })),
+      },
+    });
+    setLabelIds(selectedOrderLabels.map((l) => l.id));
+    setLoaded(true);
+  }, [selectedOrder, selectedOrderItems, selectedOrderLabels, id, loaded]);
+
   useLayoutEffect(() => {
     navigation.setOptions({
       headerLeft: () => (
@@ -108,7 +155,6 @@ export default function NewOrderScreen() {
   const subtotal = state.items.reduce((acc, i) => acc + i.product.price * i.quantity, 0);
   const shippingCost = state.hasDelivery ? parseFloat(state.shippingCost.replace(',', '.')) || 0 : 0;
   const total = subtotal + shippingCost;
-
   const advancePayment = state.isScheduled ? parseFloat(state.advancePayment.replace(',', '.')) || 0 : 0;
   const balance = total - advancePayment;
 
@@ -123,11 +169,14 @@ export default function NewOrderScreen() {
     }));
     setSaving(true);
     try {
-      const orderId = await createOrder({
+      const numId = Number(id);
+      await updateOrder(numId, {
         client_name: state.clientName.trim(),
         client_address: state.clientAddress.trim() || null,
         has_delivery: state.hasDelivery ? 1 : 0,
         shipping_cost: shippingCost,
+        subtotal,
+        total,
         delivery_status: state.deliveryStatus,
         payment_status: state.paymentStatus,
         payment_method: state.paymentMethod,
@@ -136,7 +185,9 @@ export default function NewOrderScreen() {
         advance_payment: advancePayment,
       }, items, labelIds);
       if (state.isScheduled && state.deliveryDate) {
-        await scheduleDeliveryNotification(orderId, state.clientName.trim(), state.deliveryDate).catch(() => {});
+        await scheduleDeliveryNotification(numId, state.clientName.trim(), state.deliveryDate).catch(() => {});
+      } else {
+        await cancelDeliveryNotification(numId).catch(() => {});
       }
       router.back();
     } catch { Alert.alert(t('common.error'), 'No se pudo guardar el pedido.'); }
@@ -322,7 +373,7 @@ export default function NewOrderScreen() {
             </View>
           </View>
           <Pressable onPress={handleSave} disabled={saving} style={{ backgroundColor: color }} className="rounded-xl py-4 items-center active:opacity-80">
-            <Text className="text-white font-semibold text-base">{saving ? t('common.saving') : t('orderForm.saveOrder')}</Text>
+            <Text className="text-white font-semibold text-base">{saving ? t('common.saving') : t('orderForm.saveChanges')}</Text>
           </Pressable>
         </View>
       </KeyboardAvoidingView>

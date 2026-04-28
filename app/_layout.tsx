@@ -1,15 +1,19 @@
 import '../global.css';
+import '@/i18n';
 
 import { Theme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
+import { Appearance } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
 import { initDatabase } from '@/db/database';
 import { getPaletteTokens } from '@/constants/palette';
 import { useUIStore } from '@/store/ui-store';
+import i18n from '@/i18n';
+import { useTranslation } from 'react-i18next';
 
 const BASE_FONTS: Theme['fonts'] = {
   regular: { fontFamily: 'System', fontWeight: '400' },
@@ -24,7 +28,10 @@ export const unstable_settings = {
 
 export default function RootLayout() {
   const colorScheme = useUIStore((s) => s.colorScheme);
+  const setColorScheme = useUIStore((s) => s.setColorScheme);
   const accentPalette = useUIStore((s) => s.accentPalette);
+  const language = useUIStore((s) => s.language);
+  const { t } = useTranslation();
   const [dbReady, setDbReady] = useState(false);
 
   useEffect(() => {
@@ -32,6 +39,19 @@ export default function RootLayout() {
       .then(() => setDbReady(true))
       .catch((e) => console.error('Error initializing database:', e));
   }, []);
+
+  useEffect(() => {
+    if (language && i18n.language !== language) {
+      i18n.changeLanguage(language);
+    }
+  }, [language]);
+
+  useEffect(() => {
+    const sub = Appearance.addChangeListener(({ colorScheme: sys }) => {
+      setColorScheme(sys === 'dark' ? 'dark' : 'light');
+    });
+    return () => sub.remove();
+  }, [setColorScheme]);
 
   if (!dbReady) {
     // El splash screen permanece visible hasta que la DB esté lista
@@ -61,19 +81,27 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen
             name="orders/new"
-            options={{ title: 'Nuevo pedido', presentation: 'modal' }}
+            options={{ title: t('orders.new'), presentation: 'modal' }}
           />
           <Stack.Screen
             name="orders/[id]"
-            options={{ title: 'Pedido', headerBackTitle: 'Pedidos' }}
+            options={{ title: t('orders.detail'), headerBackTitle: t('tabs.orders') }}
+          />
+          <Stack.Screen
+            name="orders/edit"
+            options={{ title: t('orders.edit'), presentation: 'modal' }}
           />
           <Stack.Screen
             name="catalog/new"
-            options={{ title: 'Nuevo producto', presentation: 'modal' }}
+            options={{ title: t('catalog.newProduct'), presentation: 'modal' }}
           />
           <Stack.Screen
             name="catalog/[id]"
-            options={{ title: 'Editar producto', headerBackTitle: 'Catálogo' }}
+            options={{ title: t('catalog.editProduct'), headerBackTitle: t('tabs.catalog') }}
+          />
+          <Stack.Screen
+            name="labels"
+            options={{ title: t('labelsScreen.title'), headerBackTitle: t('tabs.settings') }}
           />
         </Stack>
         <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />

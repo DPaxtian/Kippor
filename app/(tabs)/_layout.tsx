@@ -1,4 +1,5 @@
 import { Tabs } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -6,6 +7,7 @@ import { getPaletteTokens } from '@/constants/palette';
 import { useUIStore } from '@/store/ui-store';
 
 export default function TabLayout() {
+  const { t } = useTranslation();
   const colorScheme = useUIStore((s) => s.colorScheme);
   const accentPalette = useUIStore((s) => s.accentPalette);
   const isDark = colorScheme === 'dark';
@@ -31,36 +33,45 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Pedidos',
+          title: t('tabs.orders'),
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={26} name="cart.fill" color={color} />
+            <IconSymbol size={24} name="cart.fill" color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="history"
+        options={{
+          title: t('tabs.history'),
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={24} name="clock.fill" color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="catalog"
         options={{
-          title: 'Catálogo',
+          title: t('tabs.catalog'),
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={26} name="tag.fill" color={color} />
+            <IconSymbol size={24} name="tag.fill" color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="reports"
         options={{
-          title: 'Reportes',
+          title: t('tabs.reports'),
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={26} name="chart.bar.fill" color={color} />
+            <IconSymbol size={24} name="chart.bar.fill" color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Ajustes',
+          title: t('tabs.settings'),
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={26} name="gearshape.fill" color={color} />
+            <IconSymbol size={24} name="gearshape.fill" color={color} />
           ),
         }}
       />

@@ -12,7 +12,10 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.dpaxtian.Kippor",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPhotoLibraryUsageDescription": "Allows access to your photo library to add images to your product catalog.",
+        "NSCameraUsageDescription": "Allows using the camera to take photos of your catalog products.",
+        "NSUserNotificationsUsageDescription": "Allows receiving daily reminders about pending orders and sales summaries to help manage your business."
       }
     },
     "android": {
@@ -26,7 +29,9 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.dpaxtian.Kippor",
       "permissions": [
-        "android.permission.RECORD_AUDIO"
+        "android.permission.CAMERA",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.POST_NOTIFICATIONS"
       ]
     },
     "web": {
@@ -51,11 +56,21 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Kippor necesita acceso a tus fotos para agregar imágenes a tus productos.",
-          "cameraPermission": "Kippor necesita acceso a la cámara para tomar fotos de tus productos."
+          "photosPermission": "Allows access to your photo library to add images to your product catalog.",
+          "cameraPermission": "Allows using the camera to take photos of your catalog products."
         }
       ],
-      "@react-native-community/datetimepicker"
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#C45A3F",
+          "iosDisplayInForeground": true
+        }
+      ],
+      "@react-native-community/datetimepicker",
+      "expo-localization",
+      "./plugins/withPermissionStrings"
     ],
     "experiments": {
       "typedRoutes": true,

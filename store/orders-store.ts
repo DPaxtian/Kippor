@@ -11,10 +11,12 @@ import {
   type OrderFilters,
 } from '@/db/orders';
 import { getItemsByOrderId } from '@/db/order-items';
+import { getLabelsByOrderId, setOrderLabels } from '@/db/labels';
 import type {
   CreateOrderInput,
   CreateOrderItemInput,
   DeliveryStatus,
+  Label,
   Order,
   OrderItem,
   PaymentStatus,
@@ -25,6 +27,7 @@ interface OrdersState {
   orders: Order[];
   selectedOrder: Order | null;
   selectedOrderItems: OrderItem[];
+  selectedOrderLabels: Label[];
   isLoading: boolean;
   error: string | null;
   fetchTodaysOrders: () => Promise<void>;
@@ -32,12 +35,14 @@ interface OrdersState {
   fetchOrderById: (id: number) => Promise<void>;
   createOrder: (
     data: CreateOrderInput,
-    items: Omit<CreateOrderItemInput, 'order_id'>[]
+    items: Omit<CreateOrderItemInput, 'order_id'>[],
+    labelIds?: number[]
   ) => Promise<number>;
   updateOrder: (
     id: number,
     data: UpdateOrderInput,
-    items: Omit<CreateOrderItemInput, 'order_id'>[]
+    items: Omit<CreateOrderItemInput, 'order_id'>[],
+    labelIds?: number[]
   ) => Promise<void>;
   updateOrderStatus: (
     id: number,
@@ -52,6 +57,7 @@ export const useOrdersStore = create<OrdersState>((set, get) => ({
   orders: [],
   selectedOrder: null,
   selectedOrderItems: [],
+  selectedOrderLabels: [],
   isLoading: false,
   error: null,
 
@@ -82,35 +88,37 @@ export const useOrdersStore = create<OrdersState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const db = await getDatabase();
-      const [order, items] = await Promise.all([
+      const [order, items, labels] = await Promise.all([
         getOrderById(db, id),
         getItemsByOrderId(db, id),
+        getLabelsByOrderId(db, id),
       ]);
-      set({ selectedOrder: order, selectedOrderItems: items, isLoading: false });
+      set({ selectedOrder: order, selectedOrderItems: items, selectedOrderLabels: labels, isLoading: false });
     } catch (e) {
       set({ error: String(e), isLoading: false });
     }
   },
 
-  createOrder: async (data, items) => {
+  createOrder: async (data, items, labelIds = []) => {
     const db = await getDatabase();
     const id = await createOrder(db, data, items);
-    // Refrescar lista de hoy
+    if (labelIds.length > 0) await setOrderLabels(db, id, labelIds);
     const orders = await getTodaysOrders(db);
     set({ orders });
     return id;
   },
 
-  updateOrder: async (id, data, items) => {
+  updateOrder: async (id, data, items, labelIds) => {
     const db = await getDatabase();
     await updateOrder(db, id, data, items);
-    // Refrescar pedido seleccionado y lista
-    const [order, orderItems, orders] = await Promise.all([
+    if (labelIds !== undefined) await setOrderLabels(db, id, labelIds);
+    const [order, orderItems, orderLabels, orders] = await Promise.all([
       getOrderById(db, id),
       getItemsByOrderId(db, id),
+      getLabelsByOrderId(db, id),
       getTodaysOrders(db),
     ]);
-    set({ selectedOrder: order, selectedOrderItems: orderItems, orders });
+    set({ selectedOrder: order, selectedOrderItems: orderItems, selectedOrderLabels: orderLabels, orders });
   },
 
   updateOrderStatus: async (id, field, value) => {
@@ -135,5 +143,5 @@ export const useOrdersStore = create<OrdersState>((set, get) => ({
     set({ orders, selectedOrder: null, selectedOrderItems: [] });
   },
 
-  clearSelected: () => set({ selectedOrder: null, selectedOrderItems: [] }),
+  clearSelected: () => set({ selectedOrder: null, selectedOrderItems: [], selectedOrderLabels: [] }),
 }));

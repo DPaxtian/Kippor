@@ -1,8 +1,8 @@
 # Kippor — Handoff
 
-## Estado actual: MVP completo ✅
+## Estado actual: Localización completa ✅
 
-La app está funcional y con builds de preview generadas para iOS y Android vía EAS.
+La app está funcional con todas las features de Fase Inmediata y Fase Corto plazo implementadas, más soporte completo de localización en 3 idiomas.
 
 ---
 
@@ -14,10 +14,16 @@ La app está funcional y con builds de preview generadas para iOS y Android vía
 - NativeWind (Tailwind CSS para RN)
 
 ### Features implementadas
-- **Pedidos** — crear, ver detalle, eliminar; toggle de estado (entregado/pagado) desde la tarjeta; summary strip (ingresos hoy, por entregar, por cobrar)
-- **Catálogo** — grid 2 columnas, emoji picker, soporte de fotos (cámara + galería)
-- **Reportes** — selector de período, hero card con sparkline, métricas, top productos con barras de progreso, comparativo vs período anterior calculado con datos reales
-- **Ajustes** — nombre del negocio editable, tema oscuro funcional, selector de 4 colores accent (Terracota, Rosa, Miel, Oliva), borrar todos los datos con doble confirmación
+- **Pedidos** — crear, ver detalle, editar, eliminar; toggle de estado (entregado/pagado) desde la tarjeta; summary strip (ingresos hoy, por entregar, por cobrar)
+- **Historial** — tab dedicada con 90 días de pedidos agrupados por día, búsqueda por cliente, filtros por estado y etiqueta
+- **Catálogo** — grid 2 columnas, emoji picker, soporte de fotos (cámara + galería), editar y eliminar productos
+- **Reportes** — selector de período, hero card con sparkline, métricas, top productos con barras de progreso, comparativo vs período anterior, filtro por etiqueta
+- **Etiquetas** — CRUD completo, asignables a pedidos, filtrables en historial y reportes
+- **Exportar pedidos** — PDF con diseño de marca (logo, hero card, stats, tabla de pedidos) y CSV para hoja de cálculo; selector de período (hoy/semana/mes/año); share sheet nativo
+- **Localización** — español, inglés y portugués nativos; detección automática del idioma del dispositivo; selector en Ajustes; date-fns alineado con el idioma activo; ~160 strings traducidas incluyendo tabs, pantallas, alertas, notificaciones y modales
+- **Pedidos programados** — toggle "Programar pedido" con fecha de entrega (date picker) y adelanto recibido; detalle muestra saldo pendiente con alerta visual
+- **Notificaciones** — matutina diaria (resumen de pendientes), nocturna diaria (cierre del día con ingresos); ambas configurables en hora desde Ajustes; notificación de entrega automática por pedido programado
+- **Ajustes** — nombre del negocio editable, tema oscuro funcional, selector de 4 colores accent (Terracota, Rosa, Miel, Oliva), selector de moneda (9 monedas LATAM), borrar todos los datos con doble confirmación
 
 ### Sistema de diseño
 - Paleta terracota warm-leaning con tokens light/dark
@@ -26,26 +32,28 @@ La app está funcional y con builds de preview generadas para iOS y Android vía
 - Fuente del accent: `useAccentColor()` hook + `constants/palette.ts`
 
 ### Arquitectura de datos
-- DB SQLite con migraciones (`db/database.ts`, `LATEST_VERSION = 2`)
+- DB SQLite con migraciones (`db/database.ts`, `LATEST_VERSION = 3`)
 - Migración 1: tablas `products`, `orders`, `order_items`
 - Migración 2: columna `emoji TEXT` en `products`
-- Stores Zustand: `orders-store`, `products-store`, `ui-store`
-- `ui-store` maneja: `reportPeriod`, `reportDateRange`, `colorScheme`, `accentPalette`, `businessName`
+- Migración 3: tablas `labels`, `order_labels`
+- Migración 4: columnas `delivery_date TEXT` y `advance_payment REAL` en `orders`
+- Stores Zustand: `orders-store`, `products-store`, `ui-store`, `labels-store`
+- `ui-store` maneja: `reportPeriod`, `reportDateRange`, `colorScheme`, `accentPalette`, `businessName`, `currency`
 
 ---
 
 ## Lo que falta (ver ROADMAP.md)
 
-### Próximo a implementar — Fase Inmediata
-- [ ] **Editar pedidos** — la pantalla `app/orders/[id].tsx` tiene un botón "Editar" en el header que es no-op; hay que conectarlo a un formulario de edición (reusar lógica de `app/orders/new.tsx`)
-- [ ] **Historial** — `fetchTodaysOrders()` solo trae pedidos de hoy; hay que agregar navegación por fecha o un listado histórico
-- [ ] **Búsqueda** — filtrar pedidos por nombre de cliente en la tab de Pedidos
+### Fase Corto plazo — completa ✅
 
-### Notas para continuar
-- El botón "Editar" en el header de `app/orders/[id].tsx` ya existe pero llama a `router.back()` — hay que crear `app/orders/edit/[id].tsx` o reusar `new.tsx` con un `initial` prop
-- `getOrders()` en `db/orders.ts` acepta filtros `{ from, to }` — ya está lista para historial
-- El store `orders-store` tiene `fetchOrdersByRange(from, to)` — listo para usar en historial
-- Para búsqueda, lo más simple es un `useState` de filtro local sobre los pedidos ya cargados
+### Fase Mediano plazo
+- [ ] **Backup y sync con Supabase** — SQLite local como fuente de verdad, sync en background cuando hay internet
+- [ ] **Múltiples negocios** — soporte para gestionar más de un negocio desde la misma app
+
+### Fase A futuro
+- [ ] **Widget iOS/Android de pedido rápido** — crear pedido desde pantalla de inicio sin abrir la app
+- [ ] **Widget de ganancias del día** — ver ingresos del día desde pantalla de inicio
+- [ ] **Widget de pedidos pendientes** — ver pendientes de entrega/cobro desde pantalla de inicio
 
 ---
 
@@ -56,17 +64,26 @@ La app está funcional y con builds de preview generadas para iOS y Android vía
 | `db/database.ts` | Init DB, migraciones |
 | `db/orders.ts` | CRUD pedidos |
 | `db/reports.ts` | Queries de reportes + sparkline + comparativo |
-| `store/ui-store.ts` | Theme, accent, nombre negocio, períodos |
+| `db/labels.ts` | CRUD etiquetas y order_labels |
+| `store/ui-store.ts` | Theme, accent, nombre negocio, moneda, períodos |
 | `constants/palette.ts` | 4 paletas de color con valores light/dark |
 | `hooks/use-accent-color.ts` | Hook para obtener color accent activo |
-| `app/(tabs)/index.tsx` | Tab pedidos |
-| `app/orders/new.tsx` | Formulario nuevo pedido (modal) |
-| `app/orders/[id].tsx` | Detalle pedido — botón Editar pendiente |
+| `app/(tabs)/index.tsx` | Tab pedidos del día |
+| `app/(tabs)/history.tsx` | Tab historial 90 días |
+| `app/orders/new.tsx` | Formulario nuevo pedido |
+| `app/orders/[id].tsx` | Detalle pedido |
+| `app/orders/edit.tsx` | Formulario edición pedido |
 | `app/(tabs)/reports.tsx` | Reportes con comparativo real |
-| `components/reports/DateRangePicker.tsx` | Selector de período + date picker nativo |
+| `app/labels.tsx` | Gestión de etiquetas |
+| `utils/export.ts` | Generación de PDF (expo-print) y CSV (expo-file-system/legacy) |
+| `utils/notifications.ts` | Lógica de notificaciones: matutina, nocturna y por entrega de pedido |
+| `i18n/index.ts` | Configuración de i18next y detección de idioma del dispositivo |
+| `i18n/es.ts` · `en.ts` · `pt.ts` | Archivos de traducción: español, inglés y portugués |
+| `hooks/use-locale.ts` | Hook que devuelve el locale de date-fns según el idioma activo |
+| `components/ui/ExportModal.tsx` | Modal de exportación con selector de formato y período |
 
 ---
 
-## Pendientes técnicos menores
-- Build de dev/preview desactualizada — se agregó `@react-native-community/datetimepicker` después del último build; hay que correr `eas build --profile preview --platform all` de nuevo para que el date picker funcione en dispositivo
+## Pendientes técnicos
+- **Nuevo build requerido** — se agregaron `expo-print`, `expo-sharing`, `expo-notifications` y `expo-localization`; hay que correr `eas build --profile development --platform ios` (o `run:ios`) para que todo funcione en dispositivo
 - La cámara no funciona en simulador (limitación de iOS Simulator, no un bug)

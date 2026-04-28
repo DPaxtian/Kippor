@@ -10,8 +10,9 @@ import type {
 import { createOrderItem, deleteItemsByOrderId } from './order-items';
 
 export interface OrderFilters {
-  from?: string; // ISO 8601
-  to?: string;   // ISO 8601
+  from?: string;    // ISO 8601
+  to?: string;      // ISO 8601
+  labelId?: number; // filtrar por etiqueta
 }
 
 // ─── Queries ──────────────────────────────────────────────────────────────────
@@ -20,14 +21,31 @@ export async function getOrders(
   db: SQLiteDatabase,
   filters?: OrderFilters
 ): Promise<Order[]> {
-  if (filters?.from && filters?.to) {
+  const hasRange = filters?.from && filters?.to;
+  const hasLabel = filters?.labelId !== undefined;
+
+  if (hasLabel) {
+    const params: (string | number)[] = [filters!.labelId!];
+    let sql = `SELECT o.* FROM orders o
+               INNER JOIN order_labels ol ON ol.order_id = o.id
+               WHERE ol.label_id = ?`;
+    if (hasRange) {
+      sql += ` AND o.created_at >= ? AND o.created_at <= ?`;
+      params.push(filters!.from!, filters!.to!);
+    }
+    sql += ` ORDER BY o.created_at DESC`;
+    return db.getAllAsync<Order>(sql, params);
+  }
+
+  if (hasRange) {
     return db.getAllAsync<Order>(
       `SELECT * FROM orders
        WHERE created_at >= ? AND created_at <= ?
        ORDER BY created_at DESC`,
-      [filters.from, filters.to]
+      [filters!.from!, filters!.to!]
     );
   }
+
   return db.getAllAsync<Order>('SELECT * FROM orders ORDER BY created_at DESC');
 }
 
@@ -63,8 +81,8 @@ export async function createOrder(
       `INSERT INTO orders
          (client_name, client_address, has_delivery, shipping_cost,
           delivery_status, payment_status, payment_method, notes,
-          subtotal, total, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          subtotal, total, delivery_date, advance_payment, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         orderData.client_name,
         orderData.client_address ?? null,
@@ -76,6 +94,8 @@ export async function createOrder(
         orderData.notes ?? null,
         subtotal,
         total,
+        orderData.delivery_date ?? null,
+        orderData.advance_payment ?? 0,
         new Date().toISOString(),
       ]
     );
@@ -104,16 +124,18 @@ export async function updateOrder(
 
     await db.runAsync(
       `UPDATE orders
-       SET client_name     = COALESCE(?, client_name),
-           client_address  = ?,
-           has_delivery    = COALESCE(?, has_delivery),
-           shipping_cost   = COALESCE(?, shipping_cost),
-           delivery_status = COALESCE(?, delivery_status),
-           payment_status  = COALESCE(?, payment_status),
-           payment_method  = COALESCE(?, payment_method),
-           notes           = ?,
-           subtotal        = ?,
-           total           = ?
+       SET client_name      = COALESCE(?, client_name),
+           client_address   = ?,
+           has_delivery     = COALESCE(?, has_delivery),
+           shipping_cost    = COALESCE(?, shipping_cost),
+           delivery_status  = COALESCE(?, delivery_status),
+           payment_status   = COALESCE(?, payment_status),
+           payment_method   = COALESCE(?, payment_method),
+           notes            = ?,
+           subtotal         = ?,
+           total            = ?,
+           delivery_date    = ?,
+           advance_payment  = COALESCE(?, advance_payment)
        WHERE id = ?`,
       [
         orderData.client_name ?? null,
@@ -126,6 +148,8 @@ export async function updateOrder(
         orderData.notes !== undefined ? orderData.notes : null,
         subtotal,
         total,
+        orderData.delivery_date !== undefined ? orderData.delivery_date : null,
+        orderData.advance_payment ?? null,
         id,
       ]
     );
