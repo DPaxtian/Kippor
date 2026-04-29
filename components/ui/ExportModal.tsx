@@ -4,11 +4,11 @@ import { useTranslation } from 'react-i18next';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAccentColor } from '@/hooks/use-accent-color';
 import { useUIStore } from '@/store/ui-store';
-import { exportCSV, exportPDF } from '@/utils/export';
+import { exportPDF } from '@/utils/export';
 import { getDateRange } from '@/utils/dates';
+import { ModalHandle } from '@/components/ui/ModalHandle';
 import type { ReportPeriod } from '@/types';
 
-type ExportFormat = 'csv' | 'pdf';
 type PeriodOption = { key: ReportPeriod; labelKey: string; sublabelKey: string };
 
 const PERIOD_OPTIONS: PeriodOption[] = [
@@ -29,7 +29,6 @@ export function ExportModal({ visible, onClose }: ExportModalProps) {
   const { colorScheme, accentPalette, businessName, currency, reportDateRange } = useUIStore();
 
   const [selectedPeriod, setSelectedPeriod] = useState<ReportPeriod>('month');
-  const [selectedFormat, setSelectedFormat] = useState<ExportFormat>('pdf');
   const [isLoading, setIsLoading] = useState(false);
 
   const isDark = colorScheme === 'dark';
@@ -48,11 +47,7 @@ export function ExportModal({ visible, onClose }: ExportModalProps) {
         isDark,
       };
 
-      if (selectedFormat === 'csv') {
-        await exportCSV(opts);
-      } else {
-        await exportPDF(opts);
-      }
+      await exportPDF(opts);
       onClose();
     } catch (e) {
       Alert.alert(t('common.error'), t('export.errorMessage'));
@@ -69,10 +64,7 @@ export function ExportModal({ visible, onClose }: ExportModalProps) {
         <Pressable onPress={(e) => e.stopPropagation()}>
           <View className="bg-surface-elevated dark:bg-surface-elevated-dark rounded-t-3xl pb-10">
 
-            {/* Handle */}
-            <View className="items-center pt-3 pb-1">
-              <View className="w-9 h-1 rounded-full bg-border-strong dark:bg-border-strong-dark" />
-            </View>
+            <ModalHandle onClose={onClose} />
 
             <ScrollView bounces={false}>
               <View className="px-5 pt-2 pb-6 gap-5">
@@ -85,27 +77,6 @@ export function ExportModal({ visible, onClose }: ExportModalProps) {
                   <Text className="text-sm text-content-muted dark:text-content-muted-dark mt-0.5">
                     {t('export.subtitle')}
                   </Text>
-                </View>
-
-                {/* Format selector */}
-                <View>
-                  <Text className="text-xs font-semibold uppercase tracking-wider text-content-muted dark:text-content-muted-dark mb-2 px-1">
-                    {t('export.formatSection')}
-                  </Text>
-                  <View className="flex-row gap-3">
-                    <FormatCard
-                      format="pdf"
-                      selected={selectedFormat === 'pdf'}
-                      onPress={() => setSelectedFormat('pdf')}
-                      color={color} soft={soft} isDark={isDark} t={t}
-                    />
-                    <FormatCard
-                      format="csv"
-                      selected={selectedFormat === 'csv'}
-                      onPress={() => setSelectedFormat('csv')}
-                      color={color} soft={soft} isDark={isDark} t={t}
-                    />
-                  </View>
                 </View>
 
                 {/* Period selector */}
@@ -165,13 +136,9 @@ export function ExportModal({ visible, onClose }: ExportModalProps) {
                     <ActivityIndicator color="#fff" />
                   ) : (
                     <>
-                      <IconSymbol
-                        name={selectedFormat === 'pdf' ? 'doc.fill' : 'tablecells.fill'}
-                        size={16}
-                        color="#fff"
-                      />
+                      <IconSymbol name="doc.fill" size={16} color="#fff" />
                       <Text className="text-white font-semibold text-base">
-                        {t('export.button', { format: selectedFormat.toUpperCase() })}
+                        {t('export.button', { format: 'PDF' })}
                       </Text>
                     </>
                   )}
@@ -186,65 +153,3 @@ export function ExportModal({ visible, onClose }: ExportModalProps) {
   );
 }
 
-// ─── FormatCard ───────────────────────────────────────────────────────────────
-
-function FormatCard({
-  format, selected, onPress, color, soft, isDark, t,
-}: {
-  format: ExportFormat; selected: boolean; onPress: () => void;
-  color: string; soft: string; isDark: boolean; t: (key: string) => string;
-}) {
-  const isPDF = format === 'pdf';
-
-  return (
-    <Pressable
-      onPress={onPress}
-      className="flex-1 active:opacity-70"
-      style={{
-        backgroundColor: selected ? soft : isDark ? '#211C19' : '#FFFFFF',
-        borderWidth: selected ? 2 : 1,
-        borderColor: selected ? color : isDark ? '#332A26' : '#E8E0D8',
-        borderRadius: 14,
-        padding: 14,
-        alignItems: 'center',
-        gap: 8,
-      }}
-    >
-      <View
-        style={{
-          width: 44,
-          height: 44,
-          borderRadius: 12,
-          backgroundColor: selected ? color : isDark ? '#2A231F' : '#F2EDE8',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <IconSymbol
-          name={isPDF ? 'doc.richtext.fill' : 'tablecells.fill'}
-          size={22}
-          color={selected ? '#fff' : isDark ? '#7A6E66' : '#9A8A80'}
-        />
-      </View>
-      <Text
-        style={{
-          fontSize: 15,
-          fontWeight: '700',
-          color: selected ? color : isDark ? '#F4EDE7' : '#1F1815',
-        }}
-      >
-        {format.toUpperCase()}
-      </Text>
-      <Text
-        style={{
-          fontSize: 11,
-          textAlign: 'center',
-          color: isDark ? '#B8ADA5' : '#6B5D54',
-          lineHeight: 15,
-        }}
-      >
-        {isPDF ? t('export.pdfDescription') : t('export.csvDescription')}
-      </Text>
-    </Pressable>
-  );
-}

@@ -2,6 +2,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
 import { useState } from 'react';
 import { Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { ModalHandle } from '@/components/ui/ModalHandle';
 import { useTranslation } from 'react-i18next';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAccentColor } from '@/hooks/use-accent-color';
@@ -141,10 +142,7 @@ export function DateRangePicker({
           <View className="flex-1" />
           <Pressable onPress={(e) => e.stopPropagation()}>
             <View className="bg-surface-elevated dark:bg-surface-elevated-dark rounded-t-3xl pb-8">
-              {/* Handle */}
-              <View className="items-center pt-3 pb-1">
-                <View className="w-9 h-1 rounded-full bg-border-strong dark:bg-border-strong-dark" />
-              </View>
+              <ModalHandle onClose={() => setActivePicker(null)} />
 
               {/* Header */}
               <View className="flex-row items-center justify-between px-5 py-3">

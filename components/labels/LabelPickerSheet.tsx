@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ModalHandle } from '@/components/ui/ModalHandle';
 import { useTranslation } from 'react-i18next';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { LabelChip } from './LabelChip';
@@ -45,10 +46,7 @@ export function LabelPickerSheet({ selectedIds, onChange, onClose }: LabelPicker
 
   return (
     <View className="bg-surface-elevated dark:bg-surface-elevated-dark rounded-t-3xl pb-8">
-      {/* Handle */}
-      <View className="items-center pt-3 pb-1">
-        <View className="w-9 h-1 rounded-full bg-border-strong dark:bg-border-strong-dark" />
-      </View>
+      <ModalHandle onClose={onClose} />
       <Text className="text-lg font-bold text-content dark:text-content-dark px-5 py-3">
         {t('labelPicker.title')}
       </Text>

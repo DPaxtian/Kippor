@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ModalHandle } from '@/components/ui/ModalHandle';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { LabelChip } from './LabelChip';
 import { useLabelsStore } from '@/store/labels-store';
@@ -41,10 +42,7 @@ function LabelFormModal({ initial, onSave, onDelete, onClose }: LabelFormModalPr
 
   return (
     <View className="bg-surface-elevated dark:bg-surface-elevated-dark rounded-t-3xl pb-10">
-      {/* Handle */}
-      <View className="items-center pt-3 pb-1">
-        <View className="w-9 h-1 rounded-full bg-border-strong dark:bg-border-strong-dark" />
-      </View>
+      <ModalHandle onClose={onClose} />
       <Text className="text-lg font-bold text-content dark:text-content-dark px-5 pt-3 pb-1">
         {initial ? 'Editar etiqueta' : 'Nueva etiqueta'}
       </Text>
@@ -188,23 +186,25 @@ export function LabelEditor({ triggerNew = 0 }: { triggerNew?: number }) {
       >
         <Pressable className="flex-1 bg-black/40" onPress={() => setEditing(null)}>
           <View className="flex-1" />
-          <Pressable onPress={(e) => e.stopPropagation()}>
-            {editing !== null && (
-              <LabelFormModal
-                initial={editing === 'new' ? null : editing}
-                onClose={() => setEditing(null)}
-                onSave={async (data) => {
-                  if (editing === 'new') await createLabel(data);
-                  else await updateLabel(editing.id, data);
-                  setEditing(null);
-                }}
-                onDelete={editing !== 'new' ? async () => {
-                  await deleteLabel(editing.id);
-                  setEditing(null);
-                } : undefined}
-              />
-            )}
-          </Pressable>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'position' : undefined}>
+            <Pressable onPress={(e) => e.stopPropagation()}>
+              {editing !== null && (
+                <LabelFormModal
+                  initial={editing === 'new' ? null : editing}
+                  onClose={() => setEditing(null)}
+                  onSave={async (data) => {
+                    if (editing === 'new') await createLabel(data);
+                    else await updateLabel(editing.id, data);
+                    setEditing(null);
+                  }}
+                  onDelete={editing !== 'new' ? async () => {
+                    await deleteLabel(editing.id);
+                    setEditing(null);
+                  } : undefined}
+                />
+              )}
+            </Pressable>
+          </KeyboardAvoidingView>
         </Pressable>
       </Modal>
     </View>

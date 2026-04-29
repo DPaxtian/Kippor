@@ -18,6 +18,7 @@ import type { CreateOrderItemInput, DeliveryStatus, PaymentMethod, PaymentStatus
 import { scheduleDeliveryNotification } from '@/utils/notifications';
 import { format } from 'date-fns';
 import { useDateLocale, useDateFormat } from '@/hooks/use-locale';
+import { ModalHandle } from '@/components/ui/ModalHandle';
 
 interface FormItem { product: Product; quantity: number; }
 interface FormState {
@@ -145,8 +146,8 @@ export default function NewOrderScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-surface dark:bg-surface-dark" edges={['bottom']}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={Platform.OS === 'ios' ? 124 : 0} className="flex-1">
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerClassName="p-4 gap-5 pb-6">
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0} className="flex-1">
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerClassName="p-4 gap-5 pb-6" automaticallyAdjustKeyboardInsets>
 
           <SectionTitle>{t('orderForm.sectionClient')}</SectionTitle>
           <FormField label={t('orderForm.clientName')} required accentColor={color}>
@@ -286,45 +287,45 @@ export default function NewOrderScreen() {
           <FormField label={t('orderForm.notesLabel')} accentColor={color}>
             <AppTextInput value={state.notes} onChangeText={(v) => dispatch({ type: 'SET_FIELD', field: 'notes', value: v })} placeholder={t('orderForm.notesPlaceholder')} placeholderTextColor="#9A8A80" multiline numberOfLines={3} textAlignVertical="top" className="bg-surface-elevated dark:bg-surface-elevated-dark border border-border dark:border-border-dark rounded-xl px-4 py-3 text-base text-content dark:text-content-dark min-h-[72px]" />
           </FormField>
-        </ScrollView>
 
-        {/* Footer */}
-        <View className="bg-surface-elevated dark:bg-surface-elevated-dark border-t border-border dark:border-border-dark px-4 pt-3 pb-6">
-          <View className="flex-row justify-between items-center mb-3">
-            <View>
-              <Text className="text-xs text-content-subtle dark:text-content-subtle-dark">{t('common.subtotal')}</Text>
-              <Text className="text-sm font-medium text-content-muted dark:text-content-muted-dark">{fmt(subtotal)}</Text>
-            </View>
-            {state.hasDelivery && shippingCost > 0 && (
-              <View className="items-center">
-                <Text className="text-xs text-content-subtle dark:text-content-subtle-dark">{t('common.shipping')}</Text>
-                <Text className="text-sm font-medium text-content-muted dark:text-content-muted-dark">{fmt(shippingCost)}</Text>
+          {/* Total + save — inline so the keyboard never covers it */}
+          <View className="bg-surface-elevated dark:bg-surface-elevated-dark border border-border dark:border-border-dark rounded-2xl px-4 pt-3 pb-4 mt-2">
+            <View className="flex-row justify-between items-center mb-3">
+              <View>
+                <Text className="text-xs text-content-subtle dark:text-content-subtle-dark">{t('common.subtotal')}</Text>
+                <Text className="text-sm font-medium text-content-muted dark:text-content-muted-dark">{fmt(subtotal)}</Text>
               </View>
-            )}
-            {state.isScheduled && advancePayment > 0 && (
-              <View className="items-center">
-                <Text className="text-xs text-content-subtle dark:text-content-subtle-dark">{t('common.advance')}</Text>
-                <Text className="text-sm font-medium text-content-muted dark:text-content-muted-dark">{fmt(advancePayment)}</Text>
-              </View>
-            )}
-            <View className="items-end">
-              {state.isScheduled && advancePayment > 0 ? (
-                <>
-                  <Text className="text-xs text-content-subtle dark:text-content-subtle-dark">{t('common.balance')}</Text>
-                  <Text style={{ color }} className="text-xl font-bold">{fmt(balance)}</Text>
-                </>
-              ) : (
-                <>
-                  <Text className="text-xs text-content-subtle dark:text-content-subtle-dark">{t('common.total')}</Text>
-                  <Text style={{ color }} className="text-xl font-bold">{fmt(total)}</Text>
-                </>
+              {state.hasDelivery && shippingCost > 0 && (
+                <View className="items-center">
+                  <Text className="text-xs text-content-subtle dark:text-content-subtle-dark">{t('common.shipping')}</Text>
+                  <Text className="text-sm font-medium text-content-muted dark:text-content-muted-dark">{fmt(shippingCost)}</Text>
+                </View>
               )}
+              {state.isScheduled && advancePayment > 0 && (
+                <View className="items-center">
+                  <Text className="text-xs text-content-subtle dark:text-content-subtle-dark">{t('common.advance')}</Text>
+                  <Text className="text-sm font-medium text-content-muted dark:text-content-muted-dark">{fmt(advancePayment)}</Text>
+                </View>
+              )}
+              <View className="items-end">
+                {state.isScheduled && advancePayment > 0 ? (
+                  <>
+                    <Text className="text-xs text-content-subtle dark:text-content-subtle-dark">{t('common.balance')}</Text>
+                    <Text style={{ color }} className="text-xl font-bold">{fmt(balance)}</Text>
+                  </>
+                ) : (
+                  <>
+                    <Text className="text-xs text-content-subtle dark:text-content-subtle-dark">{t('common.total')}</Text>
+                    <Text style={{ color }} className="text-xl font-bold">{fmt(total)}</Text>
+                  </>
+                )}
+              </View>
             </View>
+            <Pressable onPress={handleSave} disabled={saving} style={{ backgroundColor: color }} className="rounded-xl py-4 items-center active:opacity-80">
+              <Text className="text-white font-semibold text-base">{saving ? t('common.saving') : t('orderForm.saveOrder')}</Text>
+            </Pressable>
           </View>
-          <Pressable onPress={handleSave} disabled={saving} style={{ backgroundColor: color }} className="rounded-xl py-4 items-center active:opacity-80">
-            <Text className="text-white font-semibold text-base">{saving ? t('common.saving') : t('orderForm.saveOrder')}</Text>
-          </Pressable>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
 
       {/* Date picker modal */}
@@ -333,9 +334,7 @@ export default function NewOrderScreen() {
           <View className="flex-1" />
           <Pressable onPress={(e) => e.stopPropagation()}>
             <View className="bg-surface-elevated dark:bg-surface-elevated-dark rounded-t-3xl pb-8">
-              <View className="items-center pt-3 pb-1">
-                <View className="w-9 h-1 rounded-full bg-border-strong dark:bg-border-strong-dark" />
-              </View>
+              <ModalHandle onClose={() => setShowDatePicker(false)} />
               <View className="flex-row items-center justify-between px-5 py-3">
                 <Pressable onPress={() => setShowDatePicker(false)} className="active:opacity-60">
                   <Text className="text-base text-content-muted dark:text-content-muted-dark">{t('common.cancel')}</Text>
@@ -369,9 +368,7 @@ export default function NewOrderScreen() {
           <View className="flex-1" />
           <Pressable onPress={(e) => e.stopPropagation()}>
             <View className="bg-surface-elevated dark:bg-surface-elevated-dark rounded-t-3xl pb-8">
-              <View className="items-center pt-3 pb-1">
-                <View className="w-9 h-1 rounded-full bg-border-strong dark:bg-border-strong-dark" />
-              </View>
+              <ModalHandle onClose={() => setShowProductPicker(false)} />
               <Text className="text-lg font-bold text-content dark:text-content-dark px-5 py-3">{t('orderForm.selectProduct')}</Text>
               <ScrollView style={{ maxHeight: 400 }}>
                 {products.length === 0 ? (

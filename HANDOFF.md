@@ -44,11 +44,45 @@ La app está funcional con todas las features de Fase Inmediata y Fase Corto pla
 
 ## Lo que falta (ver ROADMAP.md)
 
+### Monetización freemium (Kippor Pro)
+- [ ] **Integrar RevenueCat** (`react-native-purchases`) como capa de IAP sobre App Store y Google Play
+- [ ] **Tier gratuito** — límite de 30 pedidos por mes; al alcanzarlo se muestra el paywall
+- [ ] **Tier Pro** — pedidos ilimitados + exportación PDF/CSV + notificaciones
+- [ ] **Paywall** — pantalla de upgrade con opciones mensual/anual
+- [ ] **Gate de features** — bloquear exportación y notificaciones si no es Pro
+- [ ] **Restaurar compras** — botón en Ajustes para restaurar suscripción activa
+- [ ] **Prerequisito** — crear cuenta RevenueCat, configurar productos en App Store Connect y Google Play Console, definir precios
+
+### Soporte para tablet (iPad)
+- [ ] **Layout adaptivo** — detectar tablet con breakpoint y aplicar layouts de dos columnas donde tiene sentido: lista + detalle en pedidos/historial, grid de 3-4 columnas en catálogo, contenido centrado con ancho máximo en reportes y ajustes. El diseño se definirá antes de implementar.
+
 ### Fase Corto plazo — completa ✅
 
-### Fase Mediano plazo
-- [ ] **Backup y sync con Supabase** — SQLite local como fuente de verdad, sync en background cuando hay internet
-- [ ] **Múltiples negocios** — soporte para gestionar más de un negocio desde la misma app
+### Fase Mediano plazo — Supabase + Login + Sync
+
+**Contexto de decisión:**
+- Sin login: los datos viven solo en el dispositivo. Si el usuario borra la app o cambia de teléfono, pierde todo.
+- Con login: los datos se sincronizan en Supabase y están disponibles en cualquier dispositivo.
+- Para cross-platform (iOS ↔ Android) el login es obligatorio — no hay otra forma de identificar al mismo usuario en ambos sistemas.
+
+**Estrategia de autenticación (pendiente de decidir):**
+
+| Método | iOS | Android | Cross-platform | Notas |
+|---|---|---|---|---|
+| Apple Sign In | ✅ | ❌ | ❌ | Apple puede ocultar el email real |
+| Google Sign In | ✅ | ✅ | ✅ | Requiere cuenta Google |
+| Email + contraseña | ✅ | ✅ | ✅ | Universal, más fricción |
+| Magic link (email) | ✅ | ✅ | ✅ | Sin contraseña, Supabase nativo |
+
+**Recomendación:** magic link o email/contraseña como método principal, con Apple Sign In y Google Sign In como botones de conveniencia. Es la única combinación que resuelve todos los casos incluyendo cambio de iOS a Android.
+
+**Lo que resuelve Supabase + login:**
+- [ ] **Backup automático** — si el usuario borra la app o cambia de teléfono, sus datos se restauran al iniciar sesión
+- [ ] **Cross-device** — mismos datos en iPhone e iPad con el mismo login
+- [ ] **Cross-platform** — mismos datos en iOS y Android
+- [ ] **Vincular suscripción Pro** — RevenueCat se vincula al usuario autenticado en vez del dispositivo
+- [ ] **Múltiples negocios** — cada negocio asociado a la cuenta del usuario
+- [ ] **Sync offline-first** — SQLite local sigue siendo la fuente de verdad, Supabase sincroniza en background cuando hay internet
 
 ### Fase A futuro
 - [ ] **Widget iOS/Android de pedido rápido** — crear pedido desde pantalla de inicio sin abrir la app

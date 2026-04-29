@@ -2,8 +2,10 @@ import { Tabs } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
 import { HapticTab } from '@/components/haptic-tab';
+import { TabletLayout } from '@/components/tablet/TabletLayout';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { getPaletteTokens } from '@/constants/palette';
+import { useIsTablet } from '@/hooks/use-is-tablet';
 import { useUIStore } from '@/store/ui-store';
 
 export default function TabLayout() {
@@ -12,6 +14,11 @@ export default function TabLayout() {
   const accentPalette = useUIStore((s) => s.accentPalette);
   const isDark = colorScheme === 'dark';
   const { color: primaryColor } = getPaletteTokens(accentPalette, colorScheme);
+  const isTablet = useIsTablet();
+
+  if (isTablet) {
+    return <TabletLayout />;
+  }
 
   return (
     <Tabs

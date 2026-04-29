@@ -16,6 +16,7 @@ import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Te
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { AppTextInput } from '@/components/ui/AppTextInput';
 import { ExportModal } from '@/components/ui/ExportModal';
+import { ModalHandle } from '@/components/ui/ModalHandle';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   cancelEveningNotification,
@@ -323,9 +324,7 @@ export default function SettingsScreen() {
             <View className="flex-1" />
             <Pressable onPress={(e) => e.stopPropagation()}>
               <View className="bg-surface-elevated dark:bg-surface-elevated-dark rounded-t-3xl px-5 pt-4 pb-10">
-                <View className="items-center mb-4">
-                  <View className="w-9 h-1 rounded-full bg-border-strong dark:bg-border-strong-dark" />
-                </View>
+                <ModalHandle onClose={() => setShowMorningPicker(false)} />
                 <Text className="text-lg font-bold text-content dark:text-content-dark mb-2">{t('settings.morningPickerTitle')}</Text>
                 <DateTimePicker
                   value={new Date(2000, 0, 1, morningNotificationTime.hour, morningNotificationTime.minute)}
@@ -355,9 +354,7 @@ export default function SettingsScreen() {
             <View className="flex-1" />
             <Pressable onPress={(e) => e.stopPropagation()}>
               <View className="bg-surface-elevated dark:bg-surface-elevated-dark rounded-t-3xl px-5 pt-4 pb-10">
-                <View className="items-center mb-4">
-                  <View className="w-9 h-1 rounded-full bg-border-strong dark:bg-border-strong-dark" />
-                </View>
+                <ModalHandle onClose={() => setShowEveningPicker(false)} />
                 <Text className="text-lg font-bold text-content dark:text-content-dark mb-2">{t('settings.eveningPickerTitle')}</Text>
                 <DateTimePicker
                   value={new Date(2000, 0, 1, eveningNotificationTime.hour, eveningNotificationTime.minute)}
@@ -392,9 +389,7 @@ export default function SettingsScreen() {
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'position' : undefined}>
             <Pressable onPress={(e) => e.stopPropagation()}>
               <View className="bg-surface-elevated dark:bg-surface-elevated-dark rounded-t-3xl px-5 pt-4 pb-10">
-                <View className="items-center mb-4">
-                  <View className="w-9 h-1 rounded-full bg-border-strong dark:bg-border-strong-dark" />
-                </View>
+                <ModalHandle onClose={() => setShowNameModal(false)} />
                 <Text className="text-lg font-bold text-content dark:text-content-dark mb-4">
                   {t('settings.businessNameTitle')}
                 </Text>
@@ -426,9 +421,7 @@ export default function SettingsScreen() {
           <View className="flex-1" />
           <Pressable onPress={(e) => e.stopPropagation()}>
             <View className="bg-surface-elevated dark:bg-surface-elevated-dark rounded-t-3xl pb-10">
-              <View className="items-center pt-3 pb-1">
-                <View className="w-9 h-1 rounded-full bg-border-strong dark:bg-border-strong-dark" />
-              </View>
+              <ModalHandle onClose={() => setShowCurrencyModal(false)} />
               <Text className="text-lg font-bold text-content dark:text-content-dark px-5 py-3">{t('settings.currencyTitle')}</Text>
               <ScrollView style={{ maxHeight: 380 }}>
                 {CURRENCY_KEYS.map((key) => {
@@ -464,9 +457,7 @@ export default function SettingsScreen() {
           <View className="flex-1" />
           <Pressable onPress={(e) => e.stopPropagation()}>
             <View className="bg-surface-elevated dark:bg-surface-elevated-dark rounded-t-3xl pb-10">
-              <View className="items-center pt-3 pb-1">
-                <View className="w-9 h-1 rounded-full bg-border-strong dark:bg-border-strong-dark" />
-              </View>
+              <ModalHandle onClose={() => setShowLanguageModal(false)} />
               <Text className="text-lg font-bold text-content dark:text-content-dark px-5 py-3">{t('languages.title')}</Text>
               {SUPPORTED_LANGUAGES.map((lang) => {
                 const isSelected = language === lang;
