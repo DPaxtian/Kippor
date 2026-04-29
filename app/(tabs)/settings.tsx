@@ -31,6 +31,7 @@ const PALETTE_OPTIONS: { key: AccentPalette; label: string }[] = [
   { key: 'rosa', label: 'Rosa' },
   { key: 'miel', label: 'Miel' },
   { key: 'oliva', label: 'Oliva' },
+  { key: 'pizarra', label: 'Pizarra' },
 ];
 
 const CURRENCY_KEYS = ['MXN', 'USD', 'EUR', 'COP', 'ARS', 'CLP', 'PEN', 'GTQ', 'CRC'] as CurrencyCode[];

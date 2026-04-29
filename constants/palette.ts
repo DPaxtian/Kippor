@@ -32,6 +32,12 @@ const PALETTES: Record<AccentPalette, AppTokens> = {
     primarySoft: '#EAF1DA',
     primarySoftDark: '#1E2611',
   },
+  pizarra: {
+    primary: '#4A6FA5',
+    primaryDark: '#7B9EC9',
+    primarySoft: '#DDE8F5',
+    primarySoftDark: '#162033',
+  },
 };
 
 export function getPaletteTokens(

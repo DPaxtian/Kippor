@@ -12,7 +12,7 @@ interface DateRange {
 }
 
 export type AppColorScheme = 'light' | 'dark';
-export type AccentPalette = 'terracota' | 'rosa' | 'miel' | 'oliva';
+export type AccentPalette = 'terracota' | 'rosa' | 'miel' | 'oliva' | 'pizarra';
 export type CurrencyCode = 'MXN' | 'USD' | 'EUR' | 'COP' | 'ARS' | 'CLP' | 'PEN' | 'GTQ' | 'CRC';
 export type { AppLanguage };
 
