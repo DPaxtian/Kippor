@@ -300,6 +300,8 @@ export default {
     morningPickerTitle: 'Hora del resumen matutino',
     eveningPickerTitle: 'Hora del cierre del día',
     version: 'Kippor · v{{version}}',
+    sectionAbout: 'Acerca de',
+    privacyPolicy: 'Política de privacidad',
   },
 
   // ─── Países ─────────────────────────────────────────────────────────────────

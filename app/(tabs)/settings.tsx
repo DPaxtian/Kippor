@@ -12,7 +12,7 @@ import Constants from 'expo-constants';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SUPPORTED_LANGUAGES, type AppLanguage } from '@/i18n';
-import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { AppTextInput } from '@/components/ui/AppTextInput';
 import { ExportModal } from '@/components/ui/ExportModal';
@@ -292,6 +292,18 @@ export default function SettingsScreen() {
             chevron
             colorScheme={colorScheme}
             onPress={handleComingSoon}
+            isLast
+          />
+        </SettingsGroup>
+
+        {/* Acerca de */}
+        <SettingsGroup title={t('settings.sectionAbout')} colorScheme={colorScheme}>
+          <SettingsRow
+            icon="hand.raised.fill"
+            label={t('settings.privacyPolicy')}
+            chevron
+            colorScheme={colorScheme}
+            onPress={() => Linking.openURL('https://dpaxtian.github.io/Kippor-Privacy-Policy/')}
             isLast
           />
         </SettingsGroup>

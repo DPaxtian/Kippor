@@ -300,6 +300,8 @@ export default {
     morningPickerTitle: 'Morning summary time',
     eveningPickerTitle: 'End of day time',
     version: 'Kippor · v{{version}}',
+    sectionAbout: 'About',
+    privacyPolicy: 'Privacy Policy',
   },
 
   // ─── Countries ─────────────────────────────────────────────────────────────

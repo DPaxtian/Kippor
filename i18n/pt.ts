@@ -300,6 +300,8 @@ export default {
     morningPickerTitle: 'Horário do resumo matinal',
     eveningPickerTitle: 'Horário do fechamento do dia',
     version: 'Kippor · v{{version}}',
+    sectionAbout: 'Sobre o app',
+    privacyPolicy: 'Política de privacidade',
   },
 
   // ─── Países ─────────────────────────────────────────────────────────────────
