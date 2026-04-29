@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { ModalHandle } from '@/components/ui/ModalHandle';
 import { useTranslation } from 'react-i18next';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -7,8 +7,6 @@ import { LabelChip } from './LabelChip';
 import { useLabelsStore } from '@/store/labels-store';
 import { useUIStore } from '@/store/ui-store';
 import { useAccentColor } from '@/hooks/use-accent-color';
-import { slugifyLabel } from '@/constants/label-colors';
-import type { Label } from '@/types';
 
 interface LabelPickerSheetProps {
   selectedIds: number[];
@@ -18,30 +16,14 @@ interface LabelPickerSheetProps {
 
 export function LabelPickerSheet({ selectedIds, onChange, onClose }: LabelPickerSheetProps) {
   const { t } = useTranslation();
-  const { labels, createLabel } = useLabelsStore();
+  const { labels } = useLabelsStore();
   const { colorScheme } = useUIStore();
   const { color } = useAccentColor();
   const isDark = colorScheme === 'dark';
-  const iconColor = isDark ? '#7A6E66' : '#9A8A80';
-
-  const [query, setQuery] = useState('');
-  const slug = slugifyLabel(query);
-  const visible = labels.filter((l) =>
-    l.name.toLowerCase().includes(query.trim().toLowerCase())
-  );
-  const exists = labels.some((l) => l.name === slug);
-  const canCreate = slug.length > 0 && !exists;
 
   function toggle(id: number) {
     if (selectedIds.includes(id)) onChange(selectedIds.filter((x) => x !== id));
     else onChange([...selectedIds, id]);
-  }
-
-  async function handleCreate() {
-    if (!canCreate) return;
-    const id = await createLabel({ name: slug, color: 'gray' });
-    onChange([...selectedIds, id]);
-    setQuery('');
   }
 
   return (
@@ -51,47 +33,20 @@ export function LabelPickerSheet({ selectedIds, onChange, onClose }: LabelPicker
         {t('labelPicker.title')}
       </Text>
 
-      {/* Search */}
-      <View className="flex-row items-center gap-2 mx-4 mb-3 bg-surface dark:bg-surface-dark border border-border dark:border-border-dark rounded-xl px-3 py-2.5">
-        <Text className="text-base font-bold text-content-muted dark:text-content-muted-dark">#</Text>
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          placeholder={t('labelPicker.searchPlaceholder')}
-          placeholderTextColor="#9A8A80"
-          autoFocus
-          style={{ flex: 1, fontSize: 16, padding: 0, color: isDark ? '#F4EDE7' : '#1F1815' }}
-        />
-        {query.length > 0 && (
-          <Pressable onPress={() => setQuery('')} className="active:opacity-60">
-            <IconSymbol name="xmark.circle.fill" size={16} color={iconColor} />
-          </Pressable>
-        )}
-      </View>
-
-      <ScrollView style={{ maxHeight: 340 }} keyboardShouldPersistTaps="handled">
-        {/* Crear nueva */}
-        {canCreate && (
-          <Pressable
-            onPress={handleCreate}
-            className="flex-row items-center gap-3 mx-4 mb-2 px-3 py-3 rounded-xl active:opacity-70"
-            style={{ backgroundColor: color + '18' }}
-          >
-            <IconSymbol name="plus" size={18} color={color} />
-            <View>
-              <Text style={{ color }} className="text-sm font-semibold">{t('labelPicker.create')}</Text>
-              <Text style={{ color, opacity: 0.7 }} className="text-xs">#{slug}</Text>
-            </View>
-          </Pressable>
-        )}
-
-        {visible.length === 0 && !canCreate && (
-          <View className="py-10 items-center">
-            <Text className="text-sm text-content-muted dark:text-content-muted-dark">{t('labelPicker.empty')}</Text>
+      <ScrollView style={{ maxHeight: 340 }}>
+        {labels.length === 0 && (
+          <View className="py-10 items-center px-8 gap-3">
+            <IconSymbol name="tag.slash" size={32} color={isDark ? '#7A6E66' : '#9A8A80'} />
+            <Text className="text-sm text-content-muted dark:text-content-muted-dark text-center">
+              {t('labelPicker.empty')}
+            </Text>
+            <Text className="text-xs text-content-muted dark:text-content-muted-dark text-center opacity-70">
+              {t('labelPicker.emptyHint')}
+            </Text>
           </View>
         )}
 
-        {visible.map((label) => {
+        {labels.map((label) => {
           const active = selectedIds.includes(label.id);
           return (
             <Pressable
@@ -171,16 +126,18 @@ export function LabelPicker({ selectedIds, onChange }: LabelPickerProps) {
       </View>
 
       <Modal visible={open} transparent animationType="slide" onRequestClose={() => setOpen(false)}>
-        <Pressable className="flex-1 bg-black/40" onPress={() => setOpen(false)}>
-          <View className="flex-1" />
-          <Pressable onPress={(e) => e.stopPropagation()}>
-            <LabelPickerSheet
-              selectedIds={selectedIds}
-              onChange={onChange}
-              onClose={() => setOpen(false)}
-            />
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+          <Pressable className="flex-1 bg-black/40" onPress={() => setOpen(false)}>
+            <View className="flex-1" />
+            <Pressable onPress={(e) => e.stopPropagation()}>
+              <LabelPickerSheet
+                selectedIds={selectedIds}
+                onChange={onChange}
+                onClose={() => setOpen(false)}
+              />
+            </Pressable>
           </Pressable>
-        </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );

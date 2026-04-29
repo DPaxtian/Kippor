@@ -12,16 +12,19 @@ interface ProductsState {
   products: Product[];
   isLoading: boolean;
   error: string | null;
+  lastCreatedId: number | null;
   fetchProducts: () => Promise<void>;
   addProduct: (data: CreateProductInput) => Promise<void>;
   updateProduct: (id: number, data: UpdateProductInput) => Promise<void>;
   deleteProduct: (id: number) => Promise<void>;
+  clearLastCreatedId: () => void;
 }
 
 export const useProductsStore = create<ProductsState>((set) => ({
   products: [],
   isLoading: false,
   error: null,
+  lastCreatedId: null,
 
   fetchProducts: async () => {
     set({ isLoading: true, error: null });
@@ -36,10 +39,12 @@ export const useProductsStore = create<ProductsState>((set) => ({
 
   addProduct: async (data) => {
     const db = await getDatabase();
-    await createProduct(db, data);
+    const id = await createProduct(db, data);
     const products = await getAllProducts(db);
-    set({ products });
+    set({ products, lastCreatedId: id });
   },
+
+  clearLastCreatedId: () => set({ lastCreatedId: null }),
 
   updateProduct: async (id, data) => {
     const db = await getDatabase();

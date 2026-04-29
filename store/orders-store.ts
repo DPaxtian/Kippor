@@ -30,6 +30,7 @@ interface OrdersState {
   selectedOrderLabels: Label[];
   isLoading: boolean;
   error: string | null;
+  lastCreatedId: number | null;
   fetchTodaysOrders: () => Promise<void>;
   fetchOrdersByRange: (from: string, to: string) => Promise<void>;
   fetchOrderById: (id: number) => Promise<void>;
@@ -50,6 +51,8 @@ interface OrdersState {
     value: DeliveryStatus | PaymentStatus
   ) => Promise<void>;
   deleteOrder: (id: number) => Promise<void>;
+  lastCreatedId: number | null;
+  clearLastCreatedId: () => void;
   clearSelected: () => void;
 }
 
@@ -60,6 +63,7 @@ export const useOrdersStore = create<OrdersState>((set, get) => ({
   selectedOrderLabels: [],
   isLoading: false,
   error: null,
+  lastCreatedId: null,
 
   fetchTodaysOrders: async () => {
     set({ isLoading: true, error: null });
@@ -104,7 +108,7 @@ export const useOrdersStore = create<OrdersState>((set, get) => ({
     const id = await createOrder(db, data, items);
     if (labelIds.length > 0) await setOrderLabels(db, id, labelIds);
     const orders = await getTodaysOrders(db);
-    set({ orders });
+    set({ orders, lastCreatedId: id });
     return id;
   },
 
@@ -143,5 +147,6 @@ export const useOrdersStore = create<OrdersState>((set, get) => ({
     set({ orders, selectedOrder: null, selectedOrderItems: [] });
   },
 
+  clearLastCreatedId: () => set({ lastCreatedId: null }),
   clearSelected: () => set({ selectedOrder: null, selectedOrderItems: [], selectedOrderLabels: [] }),
 }));

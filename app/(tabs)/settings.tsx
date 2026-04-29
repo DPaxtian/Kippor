@@ -339,7 +339,7 @@ export default function SettingsScreen() {
                 <ModalHandle onClose={() => setShowMorningPicker(false)} />
                 <Text className="text-lg font-bold text-content dark:text-content-dark mb-2">{t('settings.morningPickerTitle')}</Text>
                 <DateTimePicker
-                  value={new Date(2000, 0, 1, morningNotificationTime.hour, morningNotificationTime.minute)}
+                  value={(() => { const d = new Date(); d.setHours(morningNotificationTime.hour, morningNotificationTime.minute, 0, 0); return d; })()}
                   mode="time"
                   display="spinner"
                   onChange={async (_, date) => {
@@ -369,7 +369,7 @@ export default function SettingsScreen() {
                 <ModalHandle onClose={() => setShowEveningPicker(false)} />
                 <Text className="text-lg font-bold text-content dark:text-content-dark mb-2">{t('settings.eveningPickerTitle')}</Text>
                 <DateTimePicker
-                  value={new Date(2000, 0, 1, eveningNotificationTime.hour, eveningNotificationTime.minute)}
+                  value={(() => { const d = new Date(); d.setHours(eveningNotificationTime.hour, eveningNotificationTime.minute, 0, 0); return d; })()}
                   mode="time"
                   display="spinner"
                   onChange={async (_, date) => {

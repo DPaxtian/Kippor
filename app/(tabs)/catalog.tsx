@@ -27,6 +27,7 @@ export default function CatalogScreen() {
           keyExtractor={(item) => String(item.id)}
           numColumns={2}
           columnWrapperStyle={{ gap: 12, paddingHorizontal: 16 }}
+          ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
           renderItem={({ item }) => (
             <ProductCard product={item} onPress={() => router.push(`/catalog/${item.id}`)} style={{ flex: 1 }} />
           )}

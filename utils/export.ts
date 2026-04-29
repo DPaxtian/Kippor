@@ -175,7 +175,7 @@ export async function exportPDF(opts: ExportOptions): Promise<void> {
               const isPaid = o.payment_status === 'paid';
               const isDelivered = o.delivery_status === 'delivered';
               return `<tr style="${i % 2 === 1 ? `background:${bgMuted};` : ''}">
-                <td style="color:${contentSubtle};">${o.id}</td>
+                <td>${o.id}</td>
                 <td>${formatShortDate(o.created_at)}</td>
                 <td style="font-weight:600;">${o.client_name}</td>
                 <td>${PAYMENT_METHOD_LABEL[o.payment_method] ?? o.payment_method}</td>
@@ -199,7 +199,7 @@ export async function exportPDF(opts: ExportOptions): Promise<void> {
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <style>
-  * { margin:0; padding:0; box-sizing:border-box; }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     background: ${bg};
@@ -226,13 +226,13 @@ export async function exportPDF(opts: ExportOptions): Promise<void> {
   }
   .header-period {
     font-size: 11px;
-    color: ${contentMuted};
+    color: ${contentColor};
     margin-top: 2px;
   }
   .header-right { text-align: right; }
   .header-generated {
     font-size: 10px;
-    color: ${contentSubtle};
+    color: ${contentColor};
   }
 
   /* Hero */
@@ -250,7 +250,7 @@ export async function exportPDF(opts: ExportOptions): Promise<void> {
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: rgba(255,255,255,0.7);
+    color: #fff;
     margin-bottom: 4px;
   }
   .hero-amount {
@@ -262,12 +262,12 @@ export async function exportPDF(opts: ExportOptions): Promise<void> {
   }
   .hero-sub {
     font-size: 12px;
-    color: rgba(255,255,255,0.6);
+    color: #fff;
     margin-top: 4px;
   }
   .hero-orders {
     text-align: right;
-    color: rgba(255,255,255,0.85);
+    color: #fff;
   }
   .hero-orders-num {
     font-size: 28px;
@@ -277,7 +277,7 @@ export async function exportPDF(opts: ExportOptions): Promise<void> {
   }
   .hero-orders-label {
     font-size: 11px;
-    color: rgba(255,255,255,0.65);
+    color: #fff;
     margin-top: 3px;
   }
 
@@ -371,7 +371,7 @@ export async function exportPDF(opts: ExportOptions): Promise<void> {
   .bar-fill { height: 100%; border-radius: 3px; }
   .product-stats { text-align: right; flex-shrink: 0; }
   .product-qty { font-size: 13px; font-weight: 700; color: ${contentColor}; }
-  .product-rev { font-size: 11px; color: ${contentSubtle}; margin-top: 1px; }
+  .product-rev { font-size: 11px; color: ${contentColor}; margin-top: 1px; }
 
   /* Orders table */
   .orders-table {

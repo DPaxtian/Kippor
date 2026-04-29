@@ -251,6 +251,7 @@ export default {
     searchPlaceholder: 'Search or create tag',
     create: 'Create tag',
     empty: 'No tags yet',
+    emptyHint: 'You can create them from Settings > Labels',
     add: 'Add tag',
     more: 'More',
   },

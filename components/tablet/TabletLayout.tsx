@@ -118,7 +118,8 @@ function TabletSidebar({ activeTab, onTab }: { activeTab: TabId; onTab: (t: TabI
 function TabletOrders() {
   const { t } = useTranslation();
   const { orders, isLoading, fetchTodaysOrders, updateOrderStatus, fetchOrderById,
-    selectedOrder, selectedOrderItems, selectedOrderLabels, deleteOrder, clearSelected } = useOrdersStore();
+    selectedOrder, selectedOrderItems, selectedOrderLabels, deleteOrder, clearSelected,
+    lastCreatedId, clearLastCreatedId } = useOrdersStore();
   const { orderLabelsMap, fetchLabelsForOrders } = useLabelsStore();
   const { color, soft } = useAccentColor();
   const { fmt } = useCurrency();
@@ -139,17 +140,22 @@ function TabletOrders() {
 
   useFocusEffect(useCallback(() => {
     fetchTodaysOrders().then(() => {
-      const ids = useOrdersStore.getState().orders.map((o) => o.id);
+      const state = useOrdersStore.getState();
+      const ids = state.orders.map((o) => o.id);
       fetchLabelsForOrders(ids);
+      if (state.lastCreatedId !== null) {
+        setSelectedId(state.lastCreatedId);
+        clearLastCreatedId();
+      }
     });
     return () => clearSelected();
-  }, [fetchTodaysOrders, fetchLabelsForOrders, clearSelected]));
+  }, [fetchTodaysOrders, fetchLabelsForOrders, clearSelected, clearLastCreatedId]));
 
   useEffect(() => {
     if (selectedId !== null) fetchOrderById(selectedId);
   }, [selectedId, fetchOrderById]);
 
-  // Auto-select first order
+  // Auto-select first order if nothing selected
   useEffect(() => {
     if (orders.length > 0 && selectedId === null) setSelectedId(orders[0].id);
   }, [orders]); // eslint-disable-line
@@ -458,7 +464,7 @@ function TabletHistory() {
 
 function TabletCatalog() {
   const { t } = useTranslation();
-  const { products, isLoading, fetchProducts } = useProductsStore();
+  const { products, isLoading, fetchProducts, lastCreatedId: lastCreatedProductId, clearLastCreatedId: clearLastCreatedProductId } = useProductsStore();
   const { color, soft } = useAccentColor();
   const { fmt } = useCurrency();
   const { colorScheme } = useUIStore();
@@ -475,7 +481,15 @@ function TabletCatalog() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const selected = products.find((p) => p.id === selectedId) ?? null;
 
-  useFocusEffect(useCallback(() => { fetchProducts(); }, [fetchProducts]));
+  useFocusEffect(useCallback(() => {
+    fetchProducts().then(() => {
+      const state = useProductsStore.getState();
+      if (state.lastCreatedId !== null) {
+        setSelectedId(state.lastCreatedId);
+        clearLastCreatedProductId();
+      }
+    });
+  }, [fetchProducts, clearLastCreatedProductId]));
 
   const prices = products.map((p) => p.price);
   const priceMin = prices.length ? Math.min(...prices) : 0;
@@ -499,6 +513,7 @@ function TabletCatalog() {
               keyExtractor={(p) => String(p.id)}
               numColumns={3}
               columnWrapperStyle={{ gap: 14, paddingHorizontal: 28 }}
+              ItemSeparatorComponent={() => <View style={{ height: 14 }} />}
               contentContainerStyle={{ paddingTop: 24, paddingBottom: 40 }}
               ListHeaderComponent={
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 28, marginBottom: 18 }}>

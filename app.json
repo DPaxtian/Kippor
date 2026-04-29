@@ -4,12 +4,13 @@
     "slug": "Kippor",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/Kippor_logo.png",
+    "icon": "./assets/images/ios-light.png",
     "scheme": "kippor",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
+      "ipadOrientations": ["UIInterfaceOrientationLandscapeLeft", "UIInterfaceOrientationLandscapeRight"],
       "bundleIdentifier": "com.dpaxtian.Kippor",
       "icon": {
         "dark": "./assets/images/ios-dark.png",

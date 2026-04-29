@@ -31,13 +31,13 @@ export async function getSalesSummary(
   }>(
     `SELECT
        COUNT(*)                                                                                           AS totalOrders,
-       SUM(o.total)                                                                                       AS totalRevenue,
-       AVG(o.total)                                                                                       AS avgOrderValue,
+       SUM(o.subtotal)                                                                                    AS totalRevenue,
+       AVG(o.subtotal)                                                                                    AS avgOrderValue,
        SUM(CASE WHEN o.payment_status  = 'paid'    THEN 1 ELSE 0 END)                                    AS paidCount,
        SUM(CASE WHEN o.payment_status  = 'unpaid'  THEN 1 ELSE 0 END)                                    AS unpaidCount,
        SUM(CASE WHEN o.delivery_status = 'pending' THEN 1 ELSE 0 END)                                    AS pendingDeliveries,
        SUM(o.advance_payment)                                                                             AS totalAdvancePayments,
-       SUM(CASE WHEN o.payment_status = 'unpaid' THEN o.total - o.advance_payment ELSE 0 END)            AS pendingBalance
+       SUM(CASE WHEN o.payment_status = 'unpaid' THEN o.subtotal - o.advance_payment ELSE 0 END)         AS pendingBalance
      FROM orders o ${join}
      WHERE o.created_at >= ? AND o.created_at <= ? ${cond}`,
     [...param, from, to]
@@ -70,7 +70,7 @@ export async function getPreviousPeriodRevenue(
 
   const { join, cond, param } = labelJoin(labelId);
   const row = await db.getFirstAsync<{ rev: number | null }>(
-    `SELECT SUM(o.total) AS rev FROM orders o ${join}
+    `SELECT SUM(o.subtotal) AS rev FROM orders o ${join}
      WHERE o.created_at >= ? AND o.created_at <= ? ${cond}`,
     [...param, prevFrom.toISOString(), prevTo.toISOString()]
   );
@@ -92,7 +92,7 @@ export async function getWeeklyRevenue(
 
   const { join, cond, param } = labelJoin(labelId);
   const rows = await db.getAllAsync<{ day: string; rev: number }>(
-    `SELECT date(o.created_at) AS day, SUM(o.total) AS rev
+    `SELECT date(o.created_at) AS day, SUM(o.subtotal) AS rev
      FROM orders o ${join}
      WHERE o.created_at >= ? AND o.created_at <= ? ${cond}
      GROUP BY day`,

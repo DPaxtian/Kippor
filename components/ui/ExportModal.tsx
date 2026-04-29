@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, AppState, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAccentColor } from '@/hooks/use-accent-color';
@@ -30,11 +30,23 @@ export function ExportModal({ visible, onClose }: ExportModalProps) {
 
   const [selectedPeriod, setSelectedPeriod] = useState<ReportPeriod>('month');
   const [isLoading, setIsLoading] = useState(false);
+  const exportingRef = useRef(false);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && exportingRef.current) {
+        exportingRef.current = false;
+        setIsLoading(false);
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   const isDark = colorScheme === 'dark';
 
   async function handleExport() {
     setIsLoading(true);
+    exportingRef.current = true;
     try {
       const range = getDateRange(selectedPeriod);
       const opts = {
@@ -53,6 +65,7 @@ export function ExportModal({ visible, onClose }: ExportModalProps) {
       Alert.alert(t('common.error'), t('export.errorMessage'));
       console.error(e);
     } finally {
+      exportingRef.current = false;
       setIsLoading(false);
     }
   }
