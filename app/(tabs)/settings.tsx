@@ -44,7 +44,7 @@ export default function SettingsScreen() {
     businessName, setBusinessName, currency, setCurrency,
     morningNotificationEnabled, morningNotificationTime, setMorningNotification,
     eveningNotificationEnabled, eveningNotificationTime, setEveningNotification,
-    language, setLanguage,
+    language, setLanguage, completeOnboarding,
   } = useUIStore();
   const { labels, fetchLabels } = useLabelsStore();
   const { color } = useAccentColor();
@@ -310,6 +310,24 @@ export default function SettingsScreen() {
             isLast
           />
         </SettingsGroup>
+
+        {/* Dev tools */}
+        {__DEV__ && (
+          <SettingsGroup title="Dev" colorScheme={colorScheme}>
+            <SettingsRow
+              icon="arrow.counterclockwise"
+              label="Reiniciar onboarding"
+              colorScheme={colorScheme}
+              isLast
+              onPress={() => {
+                completeOnboarding();
+                // Usar setTimeout para que el store persista antes de "resetear"
+                setTimeout(() => useUIStore.setState({ hasSeenOnboarding: false }), 100);
+                Alert.alert('Dev', 'Cierra y abre la app para ver el onboarding.');
+              }}
+            />
+          </SettingsGroup>
+        )}
 
         {/* Zona de peligro */}
         <SettingsGroup title={t('settings.sectionDanger')} colorScheme={colorScheme} danger>

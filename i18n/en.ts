@@ -342,6 +342,26 @@ export default {
     pt: 'Português',
   },
 
+  // ─── Onboarding ─────────────────────────────────────────────────────────────
+  onboarding: {
+    step1Title: 'Welcome to Kippor',
+    step1Subtitle: 'Manage orders, clients and sales for your business from your pocket.',
+    step1Button: 'Get started',
+    step2Title: 'Pick your color',
+    step2Subtitle: 'Make the app yours. You can change it anytime in Settings.',
+    step2Button: 'Continue',
+    step3Title: 'Tell us about your business',
+    step3Subtitle: 'This info will appear in your reports and exports.',
+    step3NameLabel: 'Business name',
+    step3NamePlaceholder: 'E.g. Lucy\'s Desserts',
+    step3CurrencyLabel: 'Currency',
+    step3Button: 'Continue',
+    step4Title: 'Start with your catalog',
+    step4Subtitle: 'Add your products first so you can create orders quickly.',
+    step4Button: 'Go to catalog',
+    step4Skip: 'Later',
+  },
+
   // ─── Notifications ─────────────────────────────────────────────────────────
   notifications: {
     morningTitle: 'Good morning ☀️',

@@ -12,6 +12,7 @@ import 'react-native-reanimated';
 import { initDatabase } from '@/db/database';
 import { getPaletteTokens } from '@/constants/palette';
 import { useUIStore } from '@/store/ui-store';
+import { OnboardingModal } from '@/components/ui/OnboardingModal';
 import i18n from '@/i18n';
 import { useTranslation } from 'react-i18next';
 
@@ -31,6 +32,7 @@ export default function RootLayout() {
   const setColorScheme = useUIStore((s) => s.setColorScheme);
   const accentPalette = useUIStore((s) => s.accentPalette);
   const language = useUIStore((s) => s.language);
+  const hasSeenOnboarding = useUIStore((s) => s.hasSeenOnboarding);
   const { t } = useTranslation();
   const [dbReady, setDbReady] = useState(false);
 
@@ -105,6 +107,7 @@ export default function RootLayout() {
           />
         </Stack>
         <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+        <OnboardingModal visible={!hasSeenOnboarding} />
       </ThemeProvider>
     </GestureHandlerRootView>
   );

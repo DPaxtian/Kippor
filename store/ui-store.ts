@@ -30,6 +30,7 @@ interface UIState {
   eveningNotificationEnabled: boolean;
   eveningNotificationTime: NotificationTime;
   language: AppLanguage;
+  hasSeenOnboarding: boolean;
   setReportPeriod: (period: ReportPeriod) => void;
   setReportDateRange: (range: DateRange) => void;
   setColorScheme: (scheme: AppColorScheme) => void;
@@ -40,6 +41,7 @@ interface UIState {
   setMorningNotification: (enabled: boolean, time?: NotificationTime) => void;
   setEveningNotification: (enabled: boolean, time?: NotificationTime) => void;
   setLanguage: (lang: AppLanguage) => void;
+  completeOnboarding: () => void;
 }
 
 function getTodayRange(): DateRange {
@@ -68,6 +70,7 @@ export const useUIStore = create<UIState>()(
       eveningNotificationEnabled: false,
       eveningNotificationTime: { hour: 20, minute: 0 },
       language: detectDeviceLanguage(),
+      hasSeenOnboarding: false,
 
       setReportPeriod: (period) => set({ reportPeriod: period }),
       setReportDateRange: (range) => set({ reportDateRange: range }),
@@ -95,6 +98,7 @@ export const useUIStore = create<UIState>()(
         i18n.changeLanguage(lang);
         set({ language: lang });
       },
+      completeOnboarding: () => set({ hasSeenOnboarding: true }),
     }),
     {
       name: 'kippor-ui',
@@ -109,6 +113,7 @@ export const useUIStore = create<UIState>()(
         eveningNotificationEnabled: state.eveningNotificationEnabled,
         eveningNotificationTime: state.eveningNotificationTime,
         language: state.language,
+        hasSeenOnboarding: state.hasSeenOnboarding,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) nwColorScheme.set(state.colorScheme);
