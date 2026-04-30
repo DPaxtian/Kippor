@@ -38,7 +38,7 @@ export default function OrdersScreen() {
   const todayLabel = format(new Date(), dayHeaderFormat, { locale: dateLocale });
 
   return (
-    <SafeAreaView className="flex-1 bg-surface dark:bg-surface-dark" edges={['bottom']}>
+    <SafeAreaView className="flex-1 bg-surface dark:bg-surface-dark" edges={[]}>
       {isLoading && orders.length === 0 ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color={color} />

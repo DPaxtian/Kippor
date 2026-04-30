@@ -16,7 +16,7 @@ export default function CatalogScreen() {
   useFocusEffect(useCallback(() => { fetchProducts(); }, [fetchProducts]));
 
   return (
-    <SafeAreaView className="flex-1 bg-surface dark:bg-surface-dark" edges={['bottom']}>
+    <SafeAreaView className="flex-1 bg-surface dark:bg-surface-dark" edges={[]}>
       {isLoading && products.length === 0 ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color={color} />

@@ -75,7 +75,7 @@ export default function HistoryScreen() {
       if (filter === 'unpaid' && o.payment_status !== 'unpaid') return false;
       if (labelFilter.length > 0) {
         const orderLabelIds = (orderLabelsMap[o.id] ?? []).map((l) => l.id);
-        if (!labelFilter.every((id) => orderLabelIds.includes(id))) return false;
+        if (!labelFilter.some((id) => orderLabelIds.includes(id))) return false;
       }
       if (!q) return true;
       return o.client_name.toLowerCase().includes(q);
@@ -83,7 +83,8 @@ export default function HistoryScreen() {
 
     const map = new Map<string, Order[]>();
     filtered.forEach((o) => {
-      const dateKey = o.created_at.slice(0, 10);
+      const d = new Date(o.created_at);
+      const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       if (!map.has(dateKey)) map.set(dateKey, []);
       map.get(dateKey)!.push(o);
     });
@@ -106,7 +107,7 @@ export default function HistoryScreen() {
   ];
 
   return (
-    <SafeAreaView className="flex-1 bg-surface dark:bg-surface-dark" edges={['bottom']}>
+    <SafeAreaView className="flex-1 bg-surface dark:bg-surface-dark" edges={[]}>
       {isLoading && orders.length === 0 ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color={color} />
@@ -173,7 +174,7 @@ export default function HistoryScreen() {
             <View className="mb-5">
               {/* Day header */}
               <View className="flex-row items-baseline justify-between px-1 mb-2">
-                <Text className="text-xs font-bold text-content dark:text-content-dark uppercase tracking-wider capitalize">
+                <Text className="text-xs font-bold text-content dark:text-content-dark capitalize tracking-wider">
                   {group.label}
                 </Text>
                 <Text className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">

@@ -15,7 +15,6 @@ import { SUPPORTED_LANGUAGES, type AppLanguage } from '@/i18n';
 import { Alert, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { AppTextInput } from '@/components/ui/AppTextInput';
-import { ExportModal } from '@/components/ui/ExportModal';
 import { ModalHandle } from '@/components/ui/ModalHandle';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -25,6 +24,7 @@ import {
   scheduleEveningNotification,
   scheduleMorningNotification,
 } from '@/utils/notifications';
+import * as Notifications from 'expo-notifications';
 
 const PALETTE_OPTIONS: { key: AccentPalette; label: string }[] = [
   { key: 'terracota', label: 'Terracota' },
@@ -51,7 +51,6 @@ export default function SettingsScreen() {
   const { t } = useTranslation();
 
   const [showNameModal, setShowNameModal] = useState(false);
-  const [showExportModal, setShowExportModal] = useState(false);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [showMorningPicker, setShowMorningPicker] = useState(false);
   const [showEveningPicker, setShowEveningPicker] = useState(false);
@@ -109,9 +108,6 @@ export default function SettingsScreen() {
     );
   }
 
-  function handleComingSoon() {
-    Alert.alert(t('common.soon'), t('common.soonMessage'));
-  }
 
   const LANGUAGE_LABELS: Record<AppLanguage, string> = {
     es: t('languages.es'),
@@ -120,7 +116,7 @@ export default function SettingsScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-surface dark:bg-surface-dark" edges={['bottom']}>
+    <SafeAreaView className="flex-1 bg-surface dark:bg-surface-dark" edges={[]}>
       <ScrollView contentContainerClassName="p-4 gap-4 pb-8">
 
         {/* Profile header */}
@@ -228,6 +224,29 @@ export default function SettingsScreen() {
 
         {/* Notificaciones */}
         <SettingsGroup title={t('settings.sectionNotifications')} colorScheme={colorScheme}>
+          {__DEV__ && (
+            <SettingsRow
+              icon="bell.badge.fill"
+              label="Probar notificación (10 s)"
+              colorScheme={colorScheme}
+              onPress={async () => {
+                const granted = await requestNotificationPermissions();
+                if (!granted) { Alert.alert('Error', 'Sin permisos de notificación'); return; }
+                await Notifications.scheduleNotificationAsync({
+                  content: {
+                    title: '🔔 Kippor — Prueba',
+                    body: 'Esto es una notificación de prueba.',
+                    sound: true,
+                  },
+                  trigger: {
+                    type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+                    seconds: 10,
+                  },
+                });
+                Alert.alert('Listo', 'La notificación llegará en 10 segundos.');
+              }}
+            />
+          )}
           <View className="px-4 py-3.5 border-b border-border dark:border-border-dark gap-2">
             <View className="flex-row items-center gap-3">
               <IconSymbol name="sun.max.fill" size={20} color={colorScheme === 'dark' ? '#7A6E66' : '#9A8A80'} />
@@ -278,24 +297,7 @@ export default function SettingsScreen() {
           </View>
         </SettingsGroup>
 
-        {/* Datos */}
-        <SettingsGroup title={t('settings.sectionData')} colorScheme={colorScheme}>
-          <SettingsRow
-            icon="square.and.arrow.down.fill"
-            label={t('settings.exportOrders')}
-            chevron
-            colorScheme={colorScheme}
-            onPress={() => setShowExportModal(true)}
-          />
-          <SettingsRow
-            icon="doc.on.doc.fill"
-            label={t('settings.backupCatalog')}
-            chevron
-            colorScheme={colorScheme}
-            onPress={handleComingSoon}
-            isLast
-          />
-        </SettingsGroup>
+
 
         {/* Acerca de */}
         <SettingsGroup title={t('settings.sectionAbout')} colorScheme={colorScheme}>
@@ -327,8 +329,6 @@ export default function SettingsScreen() {
         </Text>
 
       </ScrollView>
-
-      <ExportModal visible={showExportModal} onClose={() => setShowExportModal(false)} />
 
       {/* Time picker matutino */}
       {showMorningPicker && (

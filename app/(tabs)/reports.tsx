@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { DateRangePicker } from '@/components/reports/DateRangePicker';
@@ -13,6 +13,8 @@ import { LabelFilterBar } from '@/components/labels/LabelFilterBar';
 import { useLabelsStore } from '@/store/labels-store';
 import { useUIStore } from '@/store/ui-store';
 import { getDateRange } from '@/utils/dates';
+import { ExportModal } from '@/components/ui/ExportModal';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import type { ProductStat, ReportPeriod, SalesSummary } from '@/types';
 
 export default function ReportsScreen() {
@@ -32,6 +34,7 @@ export default function ReportsScreen() {
   const WEEK_LABELS = t('reports.weekDays', { returnObjects: true }) as string[];
 
   const [labelFilter, setLabelFilter] = useState<number[]>([]);
+  const [showExportModal, setShowExportModal] = useState(false);
   const [summary, setSummary] = useState<SalesSummary | null>(null);
   const [topProducts, setTopProducts] = useState<ProductStat[]>([]);
   const [weeklyRevenue, setWeeklyRevenue] = useState<number[]>(Array(7).fill(0));
@@ -48,12 +51,12 @@ export default function ReportsScreen() {
     setIsLoading(true);
     try {
       const db = await getDatabase();
-      const labelId = labelFilter.length === 1 ? labelFilter[0] : undefined;
+      const labelIds = labelFilter.length > 0 ? labelFilter : undefined;
       const [s, products, weekly, prevRev] = await Promise.all([
-        getSalesSummary(db, reportDateRange.from, reportDateRange.to, labelId),
-        getTopProducts(db, reportDateRange.from, reportDateRange.to, labelId),
-        getWeeklyRevenue(db, new Date(reportDateRange.to), labelId),
-        getPreviousPeriodRevenue(db, reportDateRange.from, reportDateRange.to, labelId),
+        getSalesSummary(db, reportDateRange.from, reportDateRange.to, labelIds),
+        getTopProducts(db, reportDateRange.from, reportDateRange.to, labelIds),
+        getWeeklyRevenue(db, new Date(reportDateRange.to), labelIds),
+        getPreviousPeriodRevenue(db, reportDateRange.from, reportDateRange.to, labelIds),
       ]);
       setSummary(s); setTopProducts(products); setWeeklyRevenue(weekly); setPreviousRevenue(prevRev);
     } catch (e) { console.error('Error loading reports:', e); }
@@ -76,9 +79,19 @@ export default function ReportsScreen() {
 
   const maxQty = topProducts.length > 0 ? topProducts[0].totalQuantity : 1;
 
+
   return (
-    <SafeAreaView className="flex-1 bg-surface dark:bg-surface-dark" edges={['bottom']}>
-      <ScrollView contentContainerClassName="p-4 pb-8">
+    <SafeAreaView className="flex-1 bg-surface dark:bg-surface-dark" edges={[]}>
+      <View className="flex-row items-center justify-between px-4 pt-4 pb-2">
+        <Text className="text-2xl font-bold text-content dark:text-content-dark">{t('reports.title')}</Text>
+        <Pressable
+          onPress={() => setShowExportModal(true)}
+          className="active:opacity-60 p-2 -mr-2"
+        >
+          <IconSymbol name="square.and.arrow.up" size={22} color={color} />
+        </Pressable>
+      </View>
+      <ScrollView contentContainerClassName="px-4 pb-8">
         <DateRangePicker
           selected={reportPeriod} customFrom={customFrom} customTo={customTo}
           onSelectPeriod={handleSelectPeriod}
@@ -183,6 +196,14 @@ export default function ReportsScreen() {
           </>
         ) : null}
       </ScrollView>
+
+      <ExportModal
+        visible={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        initialPeriod={reportPeriod}
+        initialDateRange={reportDateRange}
+        initialLabelIds={labelFilter.length > 0 ? labelFilter : undefined}
+      />
     </SafeAreaView>
   );
 }
