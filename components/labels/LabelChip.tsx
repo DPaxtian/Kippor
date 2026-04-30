@@ -10,9 +10,10 @@ interface LabelChipProps {
   onRemove?: () => void;
   onPress?: () => void;
   dimmed?: boolean;
+  selected?: boolean;
 }
 
-export function LabelChip({ label, size = 'md', onRemove, onPress, dimmed }: LabelChipProps) {
+export function LabelChip({ label, size = 'md', onRemove, onPress, dimmed, selected }: LabelChipProps) {
   const isDark = useUIStore((s) => s.colorScheme === 'dark');
   const { bg, fg } = resolveLabelColor(label.color, isDark);
 
@@ -30,11 +31,14 @@ export function LabelChip({ label, size = 'md', onRemove, onPress, dimmed }: Lab
         flexDirection: 'row',
         alignItems: 'center',
         gap: 3,
-        opacity: dimmed ? 0.4 : 1,
+        opacity: dimmed ? 0.35 : 1,
+        borderWidth: selected ? 1.5 : 0,
+        borderColor: selected ? fg : 'transparent',
       }}
     >
-      <Text style={{ color: fg, fontSize: fs, fontWeight: '700', opacity: 0.55 }}>#</Text>
-      <Text style={{ color: fg, fontSize: fs, fontWeight: '600' }}>{label.name}</Text>
+      {selected && <IconSymbol name="checkmark" size={fs - 1} color={fg} />}
+      {!selected && <Text style={{ color: fg, fontSize: fs, fontWeight: '700', opacity: 0.55 }}>#</Text>}
+      <Text style={{ color: fg, fontSize: fs, fontWeight: selected ? '700' : '600' }}>{label.name}</Text>
       {onRemove && (
         <Pressable onPress={onRemove} hitSlop={6} className="active:opacity-60">
           <IconSymbol name="xmark" size={10} color={fg} />

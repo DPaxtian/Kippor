@@ -10,9 +10,10 @@ import type {
 import { createOrderItem, deleteItemsByOrderId } from './order-items';
 
 export interface OrderFilters {
-  from?: string;    // ISO 8601
-  to?: string;      // ISO 8601
-  labelId?: number; // filtrar por etiqueta
+  from?: string;       // ISO 8601
+  to?: string;         // ISO 8601
+  labelId?: number;    // filtrar por una etiqueta (historial)
+  labelIds?: number[]; // filtrar por varias etiquetas (exportación)
 }
 
 // ─── Queries ──────────────────────────────────────────────────────────────────
@@ -22,13 +23,15 @@ export async function getOrders(
   filters?: OrderFilters
 ): Promise<Order[]> {
   const hasRange = filters?.from && filters?.to;
-  const hasLabel = filters?.labelId !== undefined;
+  const ids = filters?.labelIds ?? (filters?.labelId !== undefined ? [filters.labelId] : undefined);
+  const hasLabel = ids && ids.length > 0;
 
   if (hasLabel) {
-    const params: (string | number)[] = [filters!.labelId!];
-    let sql = `SELECT o.* FROM orders o
+    const placeholders = ids!.map(() => '?').join(', ');
+    const params: (string | number)[] = [...ids!];
+    let sql = `SELECT DISTINCT o.* FROM orders o
                INNER JOIN order_labels ol ON ol.order_id = o.id
-               WHERE ol.label_id = ?`;
+               WHERE ol.label_id IN (${placeholders})`;
     if (hasRange) {
       sql += ` AND o.created_at >= ? AND o.created_at <= ?`;
       params.push(filters!.from!, filters!.to!);

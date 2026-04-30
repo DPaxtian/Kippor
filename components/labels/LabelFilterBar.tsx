@@ -42,6 +42,7 @@ export function LabelFilterBar({ labels, selectedIds, onChange, label }: LabelFi
             label={l}
             size="md"
             onPress={() => toggle(l.id)}
+            selected={selectedIds.includes(l.id)}
             dimmed={selectedIds.length > 0 && !selectedIds.includes(l.id)}
           />
         ))}
