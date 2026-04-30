@@ -55,6 +55,7 @@ export async function scheduleMorningNotification(hour: number, minute: number):
     content: {
       title: t('notifications.morningTitle'),
       body,
+      sound: true,
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DAILY,
@@ -91,6 +92,7 @@ export async function scheduleEveningNotification(hour: number, minute: number, 
     content: {
       title: t('notifications.eveningTitle'),
       body,
+      sound: true,
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DAILY,
@@ -125,6 +127,7 @@ export async function scheduleDeliveryNotification(
     content: {
       title: t('notifications.deliveryTitle', { name: clientName }),
       body: t('notifications.deliveryBody'),
+      sound: true,
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DATE,
