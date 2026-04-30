@@ -24,7 +24,8 @@ import { SparklineChart } from '@/components/reports/SparklineChart';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { getPaletteTokens } from '@/constants/palette';
 import { getDatabase } from '@/db/database';
-import { getSalesSummary, getTopProducts, getWeeklyRevenue, getPreviousPeriodRevenue } from '@/db/reports';
+import { getSalesSummary, getTopProducts, getWeeklyRevenue, getPreviousPeriodRevenue, getExpenseSummaryForPeriod } from '@/db/reports';
+import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_COLORS } from '@/constants/expense-categories';
 import { useAccentColor } from '@/hooks/use-accent-color';
 import { useCurrency } from '@/hooks/use-currency';
 import { useDateLocale, useDayHeaderFormat, useDateFormat } from '@/hooks/use-locale';
@@ -32,7 +33,7 @@ import { useLabelsStore } from '@/store/labels-store';
 import { useOrdersStore } from '@/store/orders-store';
 import { useProductsStore } from '@/store/products-store';
 import { useUIStore } from '@/store/ui-store';
-import type { Order, Product, ProductStat, ReportPeriod, SalesSummary } from '@/types';
+import type { Expense, ExpenseCategory, ExpenseSummary, Order, Product, ProductStat, ReportPeriod, SalesSummary } from '@/types';
 import { formatDate, formatDateTime, formatShortDate } from '@/utils/format';
 import { getDateRange } from '@/utils/dates';
 import { CustomToggle } from '@/components/ui/CustomToggle';
@@ -41,7 +42,7 @@ import { ExportModal } from '@/components/ui/ExportModal';
 import { AppTextInput } from '@/components/ui/AppTextInput';
 import type { AccentPalette } from '@/store/ui-store';
 
-type TabId = 'orders' | 'history' | 'catalog' | 'reports' | 'settings';
+type TabId = 'orders' | 'history' | 'catalog' | 'reports' | 'expenses' | 'settings';
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 
@@ -62,6 +63,7 @@ function TabletSidebar({ activeTab, onTab }: { activeTab: TabId; onTab: (t: TabI
     { id: 'history', icon: 'clock.fill', label: t('tabs.history') },
     { id: 'catalog', icon: 'tag.fill', label: t('tabs.catalog') },
     { id: 'reports', icon: 'chart.bar.fill', label: t('tabs.reports') },
+    { id: 'expenses', icon: 'minus.circle.fill', label: t('tabs.expenses') },
     { id: 'settings', icon: 'gearshape.fill', label: t('tabs.settings') },
   ];
 
@@ -630,6 +632,7 @@ function TabletReports() {
 
   const [labelFilter, setLabelFilter] = useState<number[]>([]);
   const [summary, setSummary] = useState<SalesSummary | null>(null);
+  const [expenseSummary, setExpenseSummary] = useState<ExpenseSummary | null>(null);
   const [topProducts, setTopProducts] = useState<ProductStat[]>([]);
   const [weeklyRevenue, setWeeklyRevenue] = useState<number[]>(Array(7).fill(0));
   const [previousRevenue, setPreviousRevenue] = useState<number>(0);
@@ -644,14 +647,16 @@ function TabletReports() {
     setIsLoading(true);
     try {
       const db = await getDatabase();
-      const labelId = labelFilter.length === 1 ? labelFilter[0] : undefined;
-      const [s, products, weekly, prevRev] = await Promise.all([
-        getSalesSummary(db, reportDateRange.from, reportDateRange.to, labelId),
-        getTopProducts(db, reportDateRange.from, reportDateRange.to, labelId),
-        getWeeklyRevenue(db, new Date(reportDateRange.to), labelId),
-        getPreviousPeriodRevenue(db, reportDateRange.from, reportDateRange.to, labelId),
+      const labelIds = labelFilter.length > 0 ? labelFilter : undefined;
+      const [s, products, weekly, prevRev, expSummary] = await Promise.all([
+        getSalesSummary(db, reportDateRange.from, reportDateRange.to, labelIds),
+        getTopProducts(db, reportDateRange.from, reportDateRange.to, labelIds),
+        getWeeklyRevenue(db, new Date(reportDateRange.to), labelIds),
+        getPreviousPeriodRevenue(db, reportDateRange.from, reportDateRange.to, labelIds),
+        getExpenseSummaryForPeriod(db, reportDateRange.from, reportDateRange.to),
       ]);
       setSummary(s); setTopProducts(products); setWeeklyRevenue(weekly); setPreviousRevenue(prevRev);
+      setExpenseSummary(expSummary);
     } catch (e) { console.error(e); }
     finally { setIsLoading(false); }
   }
@@ -695,24 +700,58 @@ function TabletReports() {
               <SparklineChart data={weeklyRevenue} labels={WEEK_LABELS} />
             </View>
 
-            <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
-              <View style={{ flex: 1, backgroundColor: bgElev, borderRadius: 16, borderWidth: 1, borderColor: border, padding: 16 }}>
-                <Text style={{ color: mutedColor, fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 6 }}>{t('reports.orders')}</Text>
-                <Text style={{ color: textColor, fontSize: 24, fontWeight: '700' }}>{summary.totalOrders}</Text>
+            {/* Gastos + Ganancia neta */}
+            {expenseSummary && (
+              <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
+                <View style={{ flex: 1, backgroundColor: bgElev, borderRadius: 16, borderWidth: 1, borderColor: border, padding: 16 }}>
+                  <Text style={{ color: mutedColor, fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 6 }}>{t('reports.totalExpenses')}</Text>
+                  <Text style={{ color: '#EF4444', fontSize: 24, fontWeight: '700' }} numberOfLines={1} adjustsFontSizeToFit>{fmt(expenseSummary.totalExpenses)}</Text>
+                </View>
+                <View style={{ flex: 1, borderRadius: 16, borderWidth: 1, padding: 16, backgroundColor: summary.totalRevenue - expenseSummary.totalExpenses >= 0 ? '#22C55E22' : '#EF444422', borderColor: summary.totalRevenue - expenseSummary.totalExpenses >= 0 ? '#22C55E44' : '#EF444444' }}>
+                  <Text style={{ fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 6, color: summary.totalRevenue - expenseSummary.totalExpenses >= 0 ? '#22C55E' : '#EF4444' }}>{t('reports.netProfit')}</Text>
+                  <Text style={{ fontSize: 24, fontWeight: '700', color: summary.totalRevenue - expenseSummary.totalExpenses >= 0 ? '#22C55E' : '#EF4444' }} numberOfLines={1} adjustsFontSizeToFit>{fmt(summary.totalRevenue - expenseSummary.totalExpenses)}</Text>
+                </View>
+                <View style={{ flex: 1, backgroundColor: bgElev, borderRadius: 16, borderWidth: 1, borderColor: border, padding: 16 }}>
+                  <Text style={{ color: mutedColor, fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 6 }}>{t('reports.orders')}</Text>
+                  <Text style={{ color: textColor, fontSize: 24, fontWeight: '700' }}>{summary.totalOrders}</Text>
+                </View>
               </View>
-              <View style={{ flex: 1, backgroundColor: bgElev, borderRadius: 16, borderWidth: 1, borderColor: border, padding: 16 }}>
-                <Text style={{ color: mutedColor, fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 6 }}>{t('reports.avgTicket')}</Text>
-                <Text style={{ color: textColor, fontSize: 24, fontWeight: '700' }} numberOfLines={1} adjustsFontSizeToFit>{fmt(summary.avgOrderValue)}</Text>
+            )}
+            {!expenseSummary && (
+              <View style={{ marginBottom: 12 }}>
+                <View style={{ backgroundColor: bgElev, borderRadius: 16, borderWidth: 1, borderColor: border, padding: 16 }}>
+                  <Text style={{ color: mutedColor, fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 6 }}>{t('reports.orders')}</Text>
+                  <Text style={{ color: textColor, fontSize: 24, fontWeight: '700' }}>{summary.totalOrders}</Text>
+                </View>
               </View>
-              <View style={{ flex: 1, backgroundColor: warnBg, borderRadius: 16, borderWidth: 1, borderColor: `${warnColor}33`, padding: 16 }}>
-                <Text style={{ color: warnColor, fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 6 }}>{t('reports.toCollect')}</Text>
-                <Text style={{ color: warnColor, fontSize: 24, fontWeight: '700' }}>{summary.unpaidCount}</Text>
-              </View>
-              <View style={{ flex: 1, backgroundColor: warnBg, borderRadius: 16, borderWidth: 1, borderColor: `${warnColor}33`, padding: 16 }}>
-                <Text style={{ color: warnColor, fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 6 }}>{t('reports.toDeliver')}</Text>
-                <Text style={{ color: warnColor, fontSize: 24, fontWeight: '700' }}>{summary.pendingDeliveries}</Text>
-              </View>
-            </View>
+            )}
+
+            {/* Gastos por categoría */}
+            {expenseSummary && expenseSummary.byCategory.length > 0 && (
+              <>
+                <Text style={{ color: mutedColor, fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 12, marginTop: 8 }}>{t('reports.expensesByCategory')}</Text>
+                <View style={{ backgroundColor: bgElev, borderRadius: 16, borderWidth: 1, borderColor: border, overflow: 'hidden', marginBottom: 16 }}>
+                  {expenseSummary.byCategory.map((item, index) => {
+                    const catColor = EXPENSE_CATEGORY_COLORS[item.category as ExpenseCategory] ?? '#6B7280';
+                    const maxExp = expenseSummary.byCategory[0].total;
+                    return (
+                      <View key={item.category} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12, borderBottomWidth: index < expenseSummary.byCategory.length - 1 ? 0.5 : 0, borderBottomColor: border }}>
+                        <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: catColor + '22', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: catColor }} />
+                        </View>
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <Text style={{ fontSize: 14, fontWeight: '600', color: textColor }} numberOfLines={1}>{t(`expenseCategories.${item.category}` as any)}</Text>
+                          <View style={{ height: 6, backgroundColor: border, borderRadius: 3, marginTop: 6, overflow: 'hidden' }}>
+                            <View style={{ width: `${(item.total / maxExp) * 100}%`, height: '100%', backgroundColor: catColor, borderRadius: 3 }} />
+                          </View>
+                        </View>
+                        <Text style={{ fontSize: 14, fontWeight: '700', color: textColor, flexShrink: 0 }}>{fmt(item.total)}</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </>
+            )}
 
             {topProducts.length > 0 && (
               <>
@@ -745,6 +784,197 @@ function TabletReports() {
   );
 }
 
+// ─── Expenses ─────────────────────────────────────────────────────────────────
+
+function TabletExpenses() {
+  const { t } = useTranslation();
+  const { expenses, isLoading, fetchExpensesByRange, fetchExpenseById, selectedExpense, deleteExpense, clearSelected } = require('@/store/expenses-store').useExpensesStore();
+  const { color } = useAccentColor();
+  const { fmt } = useCurrency();
+  const dateLocale = useDateLocale();
+  const dayHeaderFormat = useDayHeaderFormat();
+  const { colorScheme } = useUIStore();
+
+  const isDark = colorScheme === 'dark';
+  const border = isDark ? '#332A26' : '#E8E0D8';
+  const bg = isDark ? '#171311' : '#FAF7F4';
+  const bgElev = isDark ? '#211C19' : '#FFFFFF';
+  const textColor = isDark ? '#F4EDE7' : '#1F1815';
+  const mutedColor = isDark ? '#B8ADA5' : '#6B5D54';
+
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<ExpenseCategory | 'all'>('all');
+
+  useFocusEffect(useCallback(() => {
+    const to = new Date(); to.setHours(23, 59, 59, 999);
+    const from = new Date(); from.setDate(from.getDate() - 90); from.setHours(0, 0, 0, 0);
+    fetchExpensesByRange(from.toISOString(), to.toISOString());
+    return () => clearSelected();
+  }, [fetchExpensesByRange, clearSelected]));
+
+  useEffect(() => {
+    if (selectedId !== null) fetchExpenseById(selectedId);
+  }, [selectedId, fetchExpenseById]);
+
+  const groups = useMemo(() => {
+    const filtered = categoryFilter === 'all' ? expenses : expenses.filter((e: Expense) => e.category === categoryFilter);
+    const map = new Map<string, Expense[]>();
+    filtered.forEach((e: Expense) => {
+      const key = format(new Date(e.date), 'yyyy-MM-dd');
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(e);
+    });
+    return [...map.entries()].map(([key, dayExpenses]) => {
+      const d = new Date((dayExpenses[0] as Expense).date);
+      let label = '';
+      if (isToday(d)) label = t('common.today');
+      else if (isYesterday(d)) label = `${t('common.yesterday')} · ${format(d, 'EEE d MMM', { locale: dateLocale })}`;
+      else label = format(d, dayHeaderFormat, { locale: dateLocale });
+      return { key, label, expenses: dayExpenses as Expense[], total: (dayExpenses as Expense[]).reduce((s, e) => s + e.amount, 0) };
+    });
+  }, [expenses, categoryFilter, dateLocale, dayHeaderFormat, t]);
+
+  const totalExpenses = groups.reduce((s, g) => s + g.total, 0);
+
+  function handleDelete(id: number) {
+    Alert.alert(t('expenses.deleteTitle'), t('expenses.deleteMessage'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('common.delete'), style: 'destructive', onPress: async () => { await deleteExpense(id); setSelectedId(null); } },
+    ]);
+  }
+
+  return (
+    <View style={{ flex: 1, flexDirection: 'row' }}>
+      {/* Master list */}
+      <View style={{ width: 380, flexShrink: 0, borderRightWidth: 0.5, borderRightColor: border, backgroundColor: bgElev }}>
+        <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
+          <View style={{ padding: 20, paddingBottom: 12, borderBottomWidth: 0.5, borderBottomColor: border }}>
+            <Text style={{ fontSize: 24, fontWeight: '700', color: textColor, letterSpacing: -0.5, marginBottom: 12 }}>{t('tabs.expenses')}</Text>
+            <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12 }}>
+              <View style={{ flex: 1, backgroundColor: '#EF444422', borderRadius: 12, borderWidth: 1, borderColor: '#EF444444', padding: 10 }}>
+                <Text style={{ color: '#EF4444', fontSize: 10, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 4 }}>{t('expenses.totalExpenses')}</Text>
+                <Text style={{ color: '#EF4444', fontSize: 18, fontWeight: '700' }} numberOfLines={1}>{fmt(totalExpenses)}</Text>
+              </View>
+            </View>
+            {/* Category filter chips */}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
+              <Pressable onPress={() => setCategoryFilter('all')}
+                style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, backgroundColor: categoryFilter === 'all' ? color : bgElev, borderWidth: 1, borderColor: categoryFilter === 'all' ? color : border }}
+                className="active:opacity-70"
+              >
+                <Text style={{ fontSize: 11.5, fontWeight: '600', color: categoryFilter === 'all' ? '#fff' : textColor }}>{t('expenses.filterAll')}</Text>
+              </Pressable>
+              {EXPENSE_CATEGORIES.filter((cat) => expenses.some((e: Expense) => e.category === cat.key)).map((cat) => {
+                const isActive = categoryFilter === cat.key;
+                const catColor = EXPENSE_CATEGORY_COLORS[cat.key];
+                return (
+                  <Pressable key={cat.key} onPress={() => setCategoryFilter(cat.key)}
+                    style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, backgroundColor: isActive ? catColor : catColor + '22', borderWidth: 1, borderColor: isActive ? catColor : catColor + '44' }}
+                    className="active:opacity-70"
+                  >
+                    <Text style={{ fontSize: 11.5, fontWeight: '600', color: isActive ? '#fff' : catColor }}>{cat.emoji} {t(`expenseCategories.${cat.key}` as any)}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
+          {isLoading && expenses.length === 0 ? (
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={color} /></View>
+          ) : (
+            <FlatList
+              data={groups}
+              keyExtractor={(g) => g.key}
+              contentContainerStyle={{ padding: 12, paddingBottom: 24 }}
+              ListEmptyComponent={
+                <View style={{ padding: 32, alignItems: 'center' }}>
+                  <Text style={{ color: mutedColor, fontSize: 14, textAlign: 'center' }}>{t('expenses.empty.title')}</Text>
+                </View>
+              }
+              renderItem={({ item: group }) => (
+                <View style={{ marginBottom: 14 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', paddingHorizontal: 4, paddingBottom: 6 }}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: mutedColor, textTransform: 'uppercase', letterSpacing: 0.4 }}>{group.label}</Text>
+                    <Text style={{ fontSize: 11, fontWeight: '600', color: mutedColor }}>{group.expenses.length} · {fmt(group.total)}</Text>
+                  </View>
+                  <View style={{ backgroundColor: bg, borderRadius: 12, borderWidth: 0.5, borderColor: border, overflow: 'hidden' }}>
+                    {group.expenses.map((expense, index) => {
+                      const catColor = EXPENSE_CATEGORY_COLORS[expense.category as ExpenseCategory] ?? '#6B7280';
+                      const meta = EXPENSE_CATEGORIES.find((c) => c.key === expense.category);
+                      const isActive = expense.id === selectedId;
+                      return (
+                        <Pressable
+                          key={expense.id}
+                          onPress={() => setSelectedId(expense.id)}
+                          style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: isActive ? catColor + '18' : 'transparent', borderBottomWidth: index < group.expenses.length - 1 ? 0.5 : 0, borderBottomColor: border }}
+                          className="active:opacity-70"
+                        >
+                          <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: catColor + '22', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <Text style={{ fontSize: 16 }}>{meta?.emoji ?? '⋯'}</Text>
+                          </View>
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text style={{ fontSize: 13.5, fontWeight: '600', color: textColor }} numberOfLines={1}>{t(`expenseCategories.${expense.category}` as any)}</Text>
+                            {expense.notes && <Text style={{ fontSize: 12, color: mutedColor, marginTop: 1 }} numberOfLines={1}>{expense.notes}</Text>}
+                          </View>
+                          <Text style={{ fontSize: 13.5, fontWeight: '700', color: catColor, flexShrink: 0 }}>{fmt(expense.amount)}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
+            />
+          )}
+        </SafeAreaView>
+      </View>
+
+      {/* Detail pane */}
+      <View style={{ flex: 1, backgroundColor: bg }}>
+        {selectedExpense ? (
+          <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
+            <ScrollView contentContainerStyle={{ padding: 32, paddingBottom: 60, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+              {(() => {
+                const catColor = EXPENSE_CATEGORY_COLORS[selectedExpense.category as ExpenseCategory] ?? '#6B7280';
+                const meta = EXPENSE_CATEGORIES.find((c) => c.key === selectedExpense.category);
+                return (
+                  <>
+                    <View style={{ backgroundColor: catColor, borderRadius: 20, padding: 24, alignItems: 'center', marginBottom: 24 }}>
+                      <Text style={{ fontSize: 48, marginBottom: 8 }}>{meta?.emoji ?? '⋯'}</Text>
+                      <Text style={{ color: '#fff', fontSize: 36, fontWeight: '700' }}>{fmt(selectedExpense.amount)}</Text>
+                      <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 14, marginTop: 4 }}>{t(`expenseCategories.${selectedExpense.category}` as any)}</Text>
+                    </View>
+                    <View style={{ backgroundColor: bgElev, borderRadius: 16, borderWidth: 1, borderColor: border, overflow: 'hidden', marginBottom: 20 }}>
+                      <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: selectedExpense.notes ? 0.5 : 0, borderBottomColor: border }}>
+                        <Text style={{ fontSize: 11, color: mutedColor, textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 4 }}>{t('expenseForm.date')}</Text>
+                        <Text style={{ fontSize: 15, color: textColor }}>{formatDate(selectedExpense.date, dateLocale)}</Text>
+                      </View>
+                      {selectedExpense.notes && (
+                        <View style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
+                          <Text style={{ fontSize: 11, color: mutedColor, textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 4 }}>{t('expenseForm.notesLabel').replace(' (opcional)', '')}</Text>
+                          <Text style={{ fontSize: 15, color: textColor }}>{selectedExpense.notes}</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Pressable
+                      onPress={() => handleDelete(selectedExpense.id)}
+                      style={{ paddingVertical: 14, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: '#EF444444' }}
+                      className="active:opacity-70"
+                    >
+                      <Text style={{ color: '#EF4444', fontWeight: '600', fontSize: 15 }}>{t('expenses.deleteButton')}</Text>
+                    </Pressable>
+                  </>
+                );
+              })()}
+            </ScrollView>
+          </SafeAreaView>
+        ) : (
+          <EmptyDetailHint icon="minus.circle.fill" label={t('expenses.selectHint')} color={mutedColor} subtleColor={mutedColor} />
+        )}
+      </View>
+    </View>
+  );
+}
+
 // ─── Settings ─────────────────────────────────────────────────────────────────
 
 function TabletSettings() {
@@ -766,6 +996,7 @@ export function TabletLayout() {
         {activeTab === 'history' && <TabletHistory />}
         {activeTab === 'catalog' && <TabletCatalog />}
         {activeTab === 'reports' && <TabletReports />}
+        {activeTab === 'expenses' && <TabletExpenses />}
         {activeTab === 'settings' && <TabletSettings />}
       </View>
     </View>
