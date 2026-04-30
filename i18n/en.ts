@@ -6,6 +6,7 @@ export default {
     catalog: 'Catalog',
     reports: 'Reports',
     settings: 'Settings',
+    expenses: 'Expenses',
   },
 
   // ─── Common ────────────────────────────────────────────────────────────────
@@ -166,6 +167,11 @@ export default {
     topProducts: 'Best sellers',
     noSales: 'No sales in this period.',
     filterLabel: 'Filter by tag',
+    netProfit: 'Net profit',
+    totalExpenses: 'Expenses',
+    expensesByCategory: 'Expenses by category',
+    noExpenses: 'No expenses in this period.',
+    revenueLabel: 'Revenue',
   },
 
   // ─── Date picker ───────────────────────────────────────────────────────────
@@ -360,6 +366,50 @@ export default {
     step4Subtitle: 'Add your products first so you can create orders quickly.',
     step4Button: 'Go to catalog',
     step4Skip: 'Later',
+  },
+
+  // ─── Expenses ──────────────────────────────────────────────────────────────
+  expenses: {
+    title: 'Expenses',
+    new: 'New expense',
+    edit: 'Edit expense',
+    detail: 'Expense',
+    empty: {
+      title: 'No expenses recorded',
+      subtitle: 'Track your expenses to calculate your net profit.',
+      cta: 'Record expense',
+    },
+    count_one: '{{count}} expense',
+    count_other: '{{count}} expenses',
+    totalExpenses: 'Total expenses',
+    deleteTitle: 'Delete expense',
+    deleteMessage: 'Delete this expense? This action cannot be undone.',
+    filterAll: 'All',
+    deleteButton: 'Delete expense',
+    selectHint: 'Select an expense to view details',
+  },
+
+  expenseForm: {
+    amount: 'Amount',
+    category: 'Category',
+    date: 'Date',
+    dateModal: 'Expense date',
+    notesLabel: 'Description (optional)',
+    notesPlaceholder: 'E.g. Weekly ingredients for cakes...',
+    saveExpense: 'Save expense',
+    saveChanges: 'Save changes',
+    errorAmountRequired: 'Enter a valid amount greater than 0.',
+  },
+
+  expenseCategories: {
+    supplies:  'Supplies',
+    packaging: 'Packaging',
+    transport: 'Transport',
+    equipment: 'Equipment',
+    services:  'Utilities',
+    marketing: 'Marketing',
+    fees:      'Fees',
+    other:     'Other',
   },
 
   // ─── Notifications ─────────────────────────────────────────────────────────

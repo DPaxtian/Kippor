@@ -86,3 +86,37 @@ export interface ProductStat {
 }
 
 export type ReportPeriod = 'today' | 'week' | 'month' | 'year' | 'custom';
+
+// ─── Gastos ───────────────────────────────────────────────────────────────────
+
+export type ExpenseCategory =
+  | 'supplies'
+  | 'packaging'
+  | 'transport'
+  | 'equipment'
+  | 'services'
+  | 'marketing'
+  | 'fees'
+  | 'other';
+
+export interface Expense {
+  id: number;
+  amount: number;
+  category: ExpenseCategory;
+  date: string;        // ISO 8601 — fecha del gasto (no del registro)
+  notes: string | null;
+  created_at: string;  // ISO 8601
+}
+
+export type CreateExpenseInput = Omit<Expense, 'id' | 'created_at'>;
+export type UpdateExpenseInput = Partial<Omit<Expense, 'id' | 'created_at'>>;
+
+export interface ExpenseCategoryStat {
+  category: ExpenseCategory;
+  total: number;
+}
+
+export interface ExpenseSummary {
+  totalExpenses: number;
+  byCategory: ExpenseCategoryStat[];
+}

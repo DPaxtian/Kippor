@@ -6,6 +6,7 @@ export default {
     catalog: 'Catálogo',
     reports: 'Reportes',
     settings: 'Ajustes',
+    expenses: 'Gastos',
   },
 
   // ─── Común ─────────────────────────────────────────────────────────────────
@@ -166,6 +167,11 @@ export default {
     topProducts: 'Más vendidos',
     noSales: 'Sin ventas en este período.',
     filterLabel: 'Filtrar por etiqueta',
+    netProfit: 'Ganancia neta',
+    totalExpenses: 'Gastos',
+    expensesByCategory: 'Gastos por categoría',
+    noExpenses: 'Sin gastos en este período.',
+    revenueLabel: 'Ingresos',
   },
 
   // ─── Selector de período ────────────────────────────────────────────────────
@@ -360,6 +366,50 @@ export default {
     step4Subtitle: 'Registra tus productos primero para poder crear pedidos rápidamente.',
     step4Button: 'Ir al catálogo',
     step4Skip: 'Después',
+  },
+
+  // ─── Gastos ─────────────────────────────────────────────────────────────────
+  expenses: {
+    title: 'Gastos',
+    new: 'Nuevo gasto',
+    edit: 'Editar gasto',
+    detail: 'Gasto',
+    empty: {
+      title: 'Sin gastos registrados',
+      subtitle: 'Registra tus gastos para calcular tu ganancia neta.',
+      cta: 'Registrar gasto',
+    },
+    count_one: '{{count}} gasto',
+    count_other: '{{count}} gastos',
+    totalExpenses: 'Total gastos',
+    deleteTitle: 'Eliminar gasto',
+    deleteMessage: '¿Eliminar este gasto? Esta acción no se puede deshacer.',
+    filterAll: 'Todos',
+    deleteButton: 'Eliminar gasto',
+    selectHint: 'Selecciona un gasto para ver sus detalles',
+  },
+
+  expenseForm: {
+    amount: 'Monto',
+    category: 'Categoría',
+    date: 'Fecha',
+    dateModal: 'Fecha del gasto',
+    notesLabel: 'Descripción (opcional)',
+    notesPlaceholder: 'Ej. Ingredientes para pasteles de la semana...',
+    saveExpense: 'Guardar gasto',
+    saveChanges: 'Guardar cambios',
+    errorAmountRequired: 'Ingresa un monto válido mayor a 0.',
+  },
+
+  expenseCategories: {
+    supplies:  'Insumos',
+    packaging: 'Empaque',
+    transport: 'Transporte',
+    equipment: 'Equipo',
+    services:  'Servicios',
+    marketing: 'Publicidad',
+    fees:      'Comisiones',
+    other:     'Otros',
   },
 
   // ─── Notificaciones ─────────────────────────────────────────────────────────

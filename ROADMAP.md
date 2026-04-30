@@ -18,18 +18,18 @@ App de gestión interna para empresarios (no se comparte nada con clientes final
 
 ## Próximas features (pendientes)
 
-### Exportación mejorada (Pro)
-- Mover exportación de PDF a la sección de Reportes (feature core de suscripción Pro, no debe estar escondida en Ajustes)
-- Exportar por etiquetas además de por rango de fechas (consistente con el filtro por etiquetas que ya existe en Reportes)
+### ~~Exportación mejorada (Pro)~~ ✅
+- ~~Mover exportación de PDF a la sección de Reportes (feature core de suscripción Pro, no debe estar escondida en Ajustes)~~
+- ~~Exportar por etiquetas además de por rango de fechas (consistente con el filtro por etiquetas que ya existe en Reportes)~~
 
-### Onboarding
-- Modal de bienvenida/tutorial al abrir la app por primera vez
-- Guiar al usuario a registrar productos antes de crear pedidos
-- Solo se muestra una vez
+### ~~Onboarding~~ ✅
+- ~~Modal de bienvenida/tutorial al abrir la app por primera vez~~
+- ~~Guiar al usuario a registrar productos antes de crear pedidos~~
+- ~~Solo se muestra una vez~~
 
-### Módulo de gastos
-- Registrar gastos del negocio (renta, ingredientes, etc.)
-- Calcular ganancia neta en reportes (ingresos - gastos)
+### ~~Módulo de gastos~~ ✅
+- ~~Registrar gastos del negocio (renta, ingredientes, etc.)~~
+- ~~Calcular ganancia neta en reportes (ingresos - gastos)~~
 
 ## Fase Mediano plazo
 - Backup/sync con Supabase — cross-platform iOS+Android, SQLite local sigue siendo fuente de verdad, Supabase como respaldo en segundo plano, app funciona 100% offline

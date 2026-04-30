@@ -74,6 +74,15 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="expenses"
+        options={{
+          title: t('tabs.expenses'),
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={24} name="minus.circle.fill" color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="settings"
         options={{
           title: t('tabs.settings'),

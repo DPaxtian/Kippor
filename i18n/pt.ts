@@ -6,6 +6,7 @@ export default {
     catalog: 'Catálogo',
     reports: 'Relatórios',
     settings: 'Configurações',
+    expenses: 'Despesas',
   },
 
   // ─── Geral ─────────────────────────────────────────────────────────────────
@@ -166,6 +167,11 @@ export default {
     topProducts: 'Mais vendidos',
     noSales: 'Sem vendas neste período.',
     filterLabel: 'Filtrar por etiqueta',
+    netProfit: 'Lucro líquido',
+    totalExpenses: 'Despesas',
+    expensesByCategory: 'Despesas por categoria',
+    noExpenses: 'Sem despesas neste período.',
+    revenueLabel: 'Receita',
   },
 
   // ─── Seletor de período ─────────────────────────────────────────────────────
@@ -360,6 +366,50 @@ export default {
     step4Subtitle: 'Cadastre seus produtos primeiro para criar pedidos rapidamente.',
     step4Button: 'Ir ao catálogo',
     step4Skip: 'Depois',
+  },
+
+  // ─── Despesas ───────────────────────────────────────────────────────────────
+  expenses: {
+    title: 'Despesas',
+    new: 'Nova despesa',
+    edit: 'Editar despesa',
+    detail: 'Despesa',
+    empty: {
+      title: 'Sem despesas registradas',
+      subtitle: 'Registre suas despesas para calcular seu lucro líquido.',
+      cta: 'Registrar despesa',
+    },
+    count_one: '{{count}} despesa',
+    count_other: '{{count}} despesas',
+    totalExpenses: 'Total despesas',
+    deleteTitle: 'Excluir despesa',
+    deleteMessage: 'Excluir esta despesa? Esta ação não pode ser desfeita.',
+    filterAll: 'Todos',
+    deleteButton: 'Excluir despesa',
+    selectHint: 'Selecione uma despesa para ver os detalhes',
+  },
+
+  expenseForm: {
+    amount: 'Valor',
+    category: 'Categoria',
+    date: 'Data',
+    dateModal: 'Data da despesa',
+    notesLabel: 'Descrição (opcional)',
+    notesPlaceholder: 'Ex. Ingredientes da semana...',
+    saveExpense: 'Salvar despesa',
+    saveChanges: 'Salvar alterações',
+    errorAmountRequired: 'Insira um valor válido maior que 0.',
+  },
+
+  expenseCategories: {
+    supplies:  'Insumos',
+    packaging: 'Embalagens',
+    transport: 'Transporte',
+    equipment: 'Equipamentos',
+    services:  'Serviços',
+    marketing: 'Publicidade',
+    fees:      'Comissões',
+    other:     'Outros',
   },
 
   // ─── Notificações ───────────────────────────────────────────────────────────

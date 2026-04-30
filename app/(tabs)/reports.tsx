@@ -6,7 +6,8 @@ import { useFocusEffect } from 'expo-router';
 import { DateRangePicker } from '@/components/reports/DateRangePicker';
 import { SparklineChart } from '@/components/reports/SparklineChart';
 import { getDatabase } from '@/db/database';
-import { getSalesSummary, getTopProducts, getWeeklyRevenue, getPreviousPeriodRevenue } from '@/db/reports';
+import { getSalesSummary, getTopProducts, getWeeklyRevenue, getPreviousPeriodRevenue, getExpenseSummaryForPeriod } from '@/db/reports';
+import { EXPENSE_CATEGORY_COLORS } from '@/constants/expense-categories';
 import { useAccentColor } from '@/hooks/use-accent-color';
 import { useCurrency } from '@/hooks/use-currency';
 import { LabelFilterBar } from '@/components/labels/LabelFilterBar';
@@ -15,7 +16,7 @@ import { useUIStore } from '@/store/ui-store';
 import { getDateRange } from '@/utils/dates';
 import { ExportModal } from '@/components/ui/ExportModal';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import type { ProductStat, ReportPeriod, SalesSummary } from '@/types';
+import type { ExpenseSummary, ProductStat, ReportPeriod, SalesSummary } from '@/types';
 
 export default function ReportsScreen() {
   const { t } = useTranslation();
@@ -36,6 +37,7 @@ export default function ReportsScreen() {
   const [labelFilter, setLabelFilter] = useState<number[]>([]);
   const [showExportModal, setShowExportModal] = useState(false);
   const [summary, setSummary] = useState<SalesSummary | null>(null);
+  const [expenseSummary, setExpenseSummary] = useState<ExpenseSummary | null>(null);
   const [topProducts, setTopProducts] = useState<ProductStat[]>([]);
   const [weeklyRevenue, setWeeklyRevenue] = useState<number[]>(Array(7).fill(0));
   const [previousRevenue, setPreviousRevenue] = useState<number>(0);
@@ -52,13 +54,15 @@ export default function ReportsScreen() {
     try {
       const db = await getDatabase();
       const labelIds = labelFilter.length > 0 ? labelFilter : undefined;
-      const [s, products, weekly, prevRev] = await Promise.all([
+      const [s, products, weekly, prevRev, expSummary] = await Promise.all([
         getSalesSummary(db, reportDateRange.from, reportDateRange.to, labelIds),
         getTopProducts(db, reportDateRange.from, reportDateRange.to, labelIds),
         getWeeklyRevenue(db, new Date(reportDateRange.to), labelIds),
         getPreviousPeriodRevenue(db, reportDateRange.from, reportDateRange.to, labelIds),
+        getExpenseSummaryForPeriod(db, reportDateRange.from, reportDateRange.to),
       ]);
       setSummary(s); setTopProducts(products); setWeeklyRevenue(weekly); setPreviousRevenue(prevRev);
+      setExpenseSummary(expSummary);
     } catch (e) { console.error('Error loading reports:', e); }
     finally { setIsLoading(false); }
   }
@@ -129,31 +133,86 @@ export default function ReportsScreen() {
               <SparklineChart data={weeklyRevenue} labels={WEEK_LABELS} />
             </View>
 
-            {/* 2×2 grid */}
-            <View className="flex-row gap-3 mb-3">
-              <View className="flex-1 bg-surface-elevated dark:bg-surface-elevated-dark border border-border dark:border-border-dark rounded-2xl p-4">
+            {/* Pedidos */}
+            <View className="mb-5">
+              <View className="bg-surface-elevated dark:bg-surface-elevated-dark border border-border dark:border-border-dark rounded-2xl p-4">
                 <Text className="text-content-muted dark:text-content-muted-dark text-xs font-semibold uppercase tracking-wider mb-1">{t('reports.orders')}</Text>
                 <Text className="text-content dark:text-content-dark text-2xl font-bold">{summary.totalOrders}</Text>
               </View>
-              <View className="flex-1 bg-surface-elevated dark:bg-surface-elevated-dark border border-border dark:border-border-dark rounded-2xl p-4">
-                <Text className="text-content-muted dark:text-content-muted-dark text-xs font-semibold uppercase tracking-wider mb-1">{t('reports.avgTicket')}</Text>
-                <Text className="text-content dark:text-content-dark text-2xl font-bold" numberOfLines={1} adjustsFontSizeToFit>
-                  {fmt(summary.avgOrderValue)}
+            </View>
+
+            {/* Ganancia neta */}
+            {expenseSummary && (
+              <View className="flex-row gap-3 mb-5">
+                <View className="flex-1 bg-surface-elevated dark:bg-surface-elevated-dark border border-border dark:border-border-dark rounded-2xl p-4">
+                  <Text className="text-content-muted dark:text-content-muted-dark text-xs font-semibold uppercase tracking-wider mb-1">
+                    {t('reports.totalExpenses')}
+                  </Text>
+                  <Text className="text-red-500 text-2xl font-bold" numberOfLines={1} adjustsFontSizeToFit>
+                    {fmt(expenseSummary.totalExpenses)}
+                  </Text>
+                </View>
+                <View
+                  className="flex-1 rounded-2xl p-4"
+                  style={{
+                    backgroundColor: summary.totalRevenue - expenseSummary.totalExpenses >= 0 ? '#22C55E22' : '#EF444422',
+                    borderWidth: 1,
+                    borderColor: summary.totalRevenue - expenseSummary.totalExpenses >= 0 ? '#22C55E44' : '#EF444444',
+                  }}
+                >
+                  <Text
+                    className="text-xs font-semibold uppercase tracking-wider mb-1"
+                    style={{ color: summary.totalRevenue - expenseSummary.totalExpenses >= 0 ? '#22C55E' : '#EF4444' }}
+                  >
+                    {t('reports.netProfit')}
+                  </Text>
+                  <Text
+                    className="text-2xl font-bold"
+                    style={{ color: summary.totalRevenue - expenseSummary.totalExpenses >= 0 ? '#22C55E' : '#EF4444' }}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                  >
+                    {fmt(summary.totalRevenue - expenseSummary.totalExpenses)}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* Gastos por categoría */}
+            {expenseSummary && expenseSummary.byCategory.length > 0 && (
+              <>
+                <Text className="text-xs font-semibold text-content-muted dark:text-content-muted-dark uppercase tracking-wider mb-3">
+                  {t('reports.expensesByCategory')}
                 </Text>
-              </View>
-            </View>
-            <View className="flex-row gap-3 mb-5">
-              <View className="flex-1 bg-warning-soft dark:bg-warning-soft-dark border border-warning/20 dark:border-warning-dark/20 rounded-2xl p-4">
-                <Text className="text-warning dark:text-warning-dark text-xs font-semibold uppercase tracking-wider mb-1">{t('reports.toCollect')}</Text>
-                <Text className="text-warning dark:text-warning-dark text-2xl font-bold">{summary.unpaidCount}</Text>
-                <Text className="text-warning/70 dark:text-warning-dark/70 text-xs mt-0.5">{t('reports.pendingOrders')}</Text>
-              </View>
-              <View className="flex-1 bg-warning-soft dark:bg-warning-soft-dark border border-warning/20 dark:border-warning-dark/20 rounded-2xl p-4">
-                <Text className="text-warning dark:text-warning-dark text-xs font-semibold uppercase tracking-wider mb-1">{t('reports.toDeliver')}</Text>
-                <Text className="text-warning dark:text-warning-dark text-2xl font-bold">{summary.pendingDeliveries}</Text>
-                <Text className="text-warning/70 dark:text-warning-dark/70 text-xs mt-0.5">{t('reports.pendingShipping')}</Text>
-              </View>
-            </View>
+                <View className="bg-surface-elevated dark:bg-surface-elevated-dark rounded-2xl border border-border dark:border-border-dark overflow-hidden mb-5">
+                  {expenseSummary.byCategory.map((item, index) => {
+                    const catColor = EXPENSE_CATEGORY_COLORS[item.category] ?? '#6B7280';
+                    const maxExpense = expenseSummary.byCategory[0].total;
+                    return (
+                      <View
+                        key={item.category}
+                        className={`flex-row items-center px-4 py-3 gap-3 ${index < expenseSummary.byCategory.length - 1 ? 'border-b border-border dark:border-border-dark' : ''}`}
+                      >
+                        <View style={{ backgroundColor: catColor + '22', width: 28, height: 28 }} className="rounded-full items-center justify-center flex-shrink-0">
+                          <View style={{ backgroundColor: catColor, width: 10, height: 10, borderRadius: 5 }} />
+                        </View>
+                        <View className="flex-1 min-w-0">
+                          <Text className="text-sm font-semibold text-content dark:text-content-dark" numberOfLines={1}>
+                            {t(`expenseCategories.${item.category}` as any)}
+                          </Text>
+                          <View className="h-1.5 bg-border dark:bg-border-dark rounded-full mt-1.5 overflow-hidden">
+                            <View style={{ width: `${(item.total / maxExpense) * 100}%`, backgroundColor: catColor }} className="h-full rounded-full" />
+                          </View>
+                        </View>
+                        <Text className="text-sm font-bold text-content dark:text-content-dark flex-shrink-0">
+                          {fmt(item.total)}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </>
+            )}
 
             {/* Top products */}
             {topProducts.length > 0 && (

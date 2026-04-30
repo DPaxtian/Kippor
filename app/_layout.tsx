@@ -105,6 +105,18 @@ export default function RootLayout() {
             name="labels"
             options={{ title: t('labelsScreen.title'), headerBackTitle: t('tabs.settings') }}
           />
+          <Stack.Screen
+            name="expenses/new"
+            options={{ title: t('expenses.new'), presentation: 'modal' }}
+          />
+          <Stack.Screen
+            name="expenses/[id]"
+            options={{ title: t('expenses.detail'), headerBackTitle: t('tabs.expenses') }}
+          />
+          <Stack.Screen
+            name="expenses/edit"
+            options={{ title: t('expenses.edit'), presentation: 'modal' }}
+          />
         </Stack>
         <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
         <OnboardingModal visible={!hasSeenOnboarding} />

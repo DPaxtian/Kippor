@@ -39,6 +39,13 @@ const MAPPING = {
   'banknote.fill': 'payments',
   'iphone': 'smartphone',
   'shippingbox.fill': 'local-shipping',
+  // Gastos
+  'car.fill': 'directions-car',
+  'wrench.and.screwdriver.fill': 'build',
+  'bolt.fill': 'bolt',
+  'megaphone.fill': 'campaign',
+  'ellipsis.circle.fill': 'more-horiz',
+  'minus.circle.fill': 'remove-circle',
 } as IconMapping;
 
 /**

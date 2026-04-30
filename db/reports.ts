@@ -1,6 +1,7 @@
 import { subDays, format, startOfDay, endOfDay } from 'date-fns';
 import type { SQLiteDatabase } from 'expo-sqlite';
-import type { ProductStat, SalesSummary } from '@/types';
+import type { ProductStat, SalesSummary, ExpenseSummary } from '@/types';
+import { getExpenseSummary } from './expenses';
 
 function labelJoin(labelIds?: number[]): { join: string; cond: string; param: number[] } {
   if (!labelIds || labelIds.length === 0) return { join: '', cond: '', param: [] };
@@ -102,6 +103,14 @@ export async function getWeeklyRevenue(
   const map: Record<string, number> = {};
   rows.forEach((r) => { map[r.day] = r.rev; });
   return days.map((d) => map[d] ?? 0);
+}
+
+export async function getExpenseSummaryForPeriod(
+  db: SQLiteDatabase,
+  from: string,
+  to: string
+): Promise<ExpenseSummary> {
+  return getExpenseSummary(db, from, to);
 }
 
 export async function getTopProducts(
