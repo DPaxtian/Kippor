@@ -849,7 +849,17 @@ function TabletExpenses() {
       <View style={{ width: 380, flexShrink: 0, borderRightWidth: 0.5, borderRightColor: border, backgroundColor: bgElev }}>
         <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
           <View style={{ padding: 20, paddingBottom: 12, borderBottomWidth: 0.5, borderBottomColor: border }}>
-            <Text style={{ fontSize: 24, fontWeight: '700', color: textColor, letterSpacing: -0.5, marginBottom: 12 }}>{t('tabs.expenses')}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <Text style={{ fontSize: 24, fontWeight: '700', color: textColor, letterSpacing: -0.5 }}>{t('tabs.expenses')}</Text>
+              <Pressable
+                onPress={() => router.push('/expenses/new')}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, backgroundColor: color }}
+                className="active:opacity-80"
+              >
+                <IconSymbol name="plus" size={15} color="#fff" />
+                <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>{t('expenses.new')}</Text>
+              </Pressable>
+            </View>
             <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12 }}>
               <View style={{ flex: 1, backgroundColor: '#EF444422', borderRadius: 12, borderWidth: 1, borderColor: '#EF444444', padding: 10 }}>
                 <Text style={{ color: '#EF4444', fontSize: 10, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 4 }}>{t('expenses.totalExpenses')}</Text>

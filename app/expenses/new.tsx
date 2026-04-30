@@ -144,21 +144,21 @@ export default function NewExpenseScreen() {
               onChangeText={setNotes}
             />
           </View>
-        </ScrollView>
 
-        {/* Footer: guardar */}
-        <View className="mx-4 mb-2">
-          <Pressable
-            onPress={handleSave}
-            disabled={saving}
-            style={{ backgroundColor: color }}
-            className="py-4 rounded-2xl items-center active:opacity-80"
-          >
-            <Text className="text-white font-semibold text-base">
-              {saving ? t('common.saving') : t('expenseForm.saveExpense')}
-            </Text>
-          </Pressable>
-        </View>
+          {/* Guardar */}
+          <View className="mx-4 mb-4">
+            <Pressable
+              onPress={handleSave}
+              disabled={saving}
+              style={{ backgroundColor: color }}
+              className="py-4 rounded-2xl items-center active:opacity-80"
+            >
+              <Text className="text-white font-semibold text-base">
+                {saving ? t('common.saving') : t('expenseForm.saveExpense')}
+              </Text>
+            </Pressable>
+          </View>
+        </ScrollView>
       </KeyboardAvoidingView>
 
       {/* Date picker modal */}
