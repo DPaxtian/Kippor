@@ -4,9 +4,11 @@ import { useTranslation } from 'react-i18next';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAccentColor } from '@/hooks/use-accent-color';
 import { useUIStore } from '@/store/ui-store';
-import { exportPDF } from '@/utils/export';
+import { exportCSV, exportPDF } from '@/utils/export';
 import { getDateRange } from '@/utils/dates';
 import { ModalHandle } from '@/components/ui/ModalHandle';
+import { LabelChip } from '@/components/labels/LabelChip';
+import { useLabelsStore } from '@/store/labels-store';
 import type { ReportPeriod } from '@/types';
 
 type PeriodOption = { key: ReportPeriod; labelKey: string; sublabelKey: string };
@@ -21,16 +23,29 @@ const PERIOD_OPTIONS: PeriodOption[] = [
 interface ExportModalProps {
   visible: boolean;
   onClose: () => void;
+  initialPeriod?: ReportPeriod;
+  initialDateRange?: { from: string; to: string };
+  initialLabelIds?: number[];
 }
 
-export function ExportModal({ visible, onClose }: ExportModalProps) {
+export function ExportModal({ visible, onClose, initialPeriod, initialDateRange, initialLabelIds }: ExportModalProps) {
   const { t } = useTranslation();
   const { color, soft } = useAccentColor();
-  const { colorScheme, accentPalette, businessName, currency, reportDateRange } = useUIStore();
+  const { colorScheme, businessName, currency } = useUIStore();
+  const { labels, fetchLabels } = useLabelsStore();
 
-  const [selectedPeriod, setSelectedPeriod] = useState<ReportPeriod>('month');
+  const [selectedPeriod, setSelectedPeriod] = useState<ReportPeriod>(initialPeriod ?? 'month');
+  const [selectedLabelIds, setSelectedLabelIds] = useState<number[]>(initialLabelIds ?? []);
   const [isLoading, setIsLoading] = useState(false);
   const exportingRef = useRef(false);
+
+  useEffect(() => {
+    if (visible) {
+      setSelectedPeriod(initialPeriod ?? 'month');
+      setSelectedLabelIds(initialLabelIds ?? []);
+      fetchLabels();
+    }
+  }, [visible, initialPeriod, initialLabelIds]);
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
@@ -44,22 +59,34 @@ export function ExportModal({ visible, onClose }: ExportModalProps) {
 
   const isDark = colorScheme === 'dark';
 
-  async function handleExport() {
+  function buildOpts(from: string, to: string) {
+    const labelNames = labels
+      .filter(l => selectedLabelIds.includes(l.id))
+      .map(l => l.name);
+    return {
+      from,
+      to,
+      businessName,
+      currency,
+      accentColor: color,
+      accentSoft: soft,
+      isDark,
+      labelIds: selectedLabelIds.length > 0 ? selectedLabelIds : undefined,
+      labelNames: labelNames.length > 0 ? labelNames : undefined,
+    };
+  }
+
+  async function handleExport(format: 'pdf' | 'csv') {
     setIsLoading(true);
     exportingRef.current = true;
     try {
-      const range = getDateRange(selectedPeriod);
-      const opts = {
-        from: range.from,
-        to: range.to,
-        businessName,
-        currency,
-        accentColor: color,
-        accentSoft: soft,
-        isDark,
-      };
+      const range = selectedPeriod === 'custom' && initialDateRange
+        ? initialDateRange
+        : getDateRange(selectedPeriod);
+      const opts = buildOpts(range.from, range.to);
 
-      await exportPDF(opts);
+      if (format === 'pdf') await exportPDF(opts);
+      else await exportCSV(opts);
       onClose();
     } catch (e) {
       Alert.alert(t('common.error'), t('export.errorMessage'));
@@ -69,6 +96,8 @@ export function ExportModal({ visible, onClose }: ExportModalProps) {
       setIsLoading(false);
     }
   }
+
+  const showCustomOption = initialPeriod === 'custom' && initialDateRange;
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -92,6 +121,40 @@ export function ExportModal({ visible, onClose }: ExportModalProps) {
                   </Text>
                 </View>
 
+                {/* Label selector */}
+                {labels.length > 0 && (
+                  <View>
+                    <View className="flex-row items-center justify-between px-1 mb-2">
+                      <Text className="text-xs font-semibold uppercase tracking-wider text-content-muted dark:text-content-muted-dark">
+                        {t('export.labelSection')}
+                      </Text>
+                      {selectedLabelIds.length > 0 && (
+                        <Pressable onPress={() => setSelectedLabelIds([])} className="active:opacity-60">
+                          <Text style={{ color }} className="text-xs font-semibold">{t('common.clear')}</Text>
+                        </Pressable>
+                      )}
+                    </View>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingBottom: 2 }}>
+                      {labels.map((label) => (
+                        <LabelChip
+                          key={label.id}
+                          label={label}
+                          size="md"
+                          onPress={() => {
+                            const isSelected = selectedLabelIds.includes(label.id);
+                            setSelectedLabelIds(isSelected
+                              ? selectedLabelIds.filter(id => id !== label.id)
+                              : [...selectedLabelIds, label.id]
+                            );
+                          }}
+                          selected={selectedLabelIds.includes(label.id)}
+                          dimmed={selectedLabelIds.length > 0 && !selectedLabelIds.includes(label.id)}
+                        />
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
+
                 {/* Period selector */}
                 <View>
                   <Text className="text-xs font-semibold uppercase tracking-wider text-content-muted dark:text-content-muted-dark mb-2 px-1">
@@ -100,12 +163,13 @@ export function ExportModal({ visible, onClose }: ExportModalProps) {
                   <View className="bg-surface dark:bg-surface-dark border border-border dark:border-border-dark rounded-2xl overflow-hidden">
                     {PERIOD_OPTIONS.map((opt, i) => {
                       const isSelected = selectedPeriod === opt.key;
+                      const isLast = i === PERIOD_OPTIONS.length - 1 && !showCustomOption;
                       return (
                         <Pressable
                           key={opt.key}
                           onPress={() => setSelectedPeriod(opt.key)}
                           className={`flex-row items-center px-4 py-3.5 active:opacity-60 ${
-                            i < PERIOD_OPTIONS.length - 1 ? 'border-b border-border dark:border-border-dark' : ''
+                            !isLast ? 'border-b border-border dark:border-border-dark' : ''
                           }`}
                         >
                           <View
@@ -135,12 +199,43 @@ export function ExportModal({ visible, onClose }: ExportModalProps) {
                         </Pressable>
                       );
                     })}
+                    {showCustomOption && (
+                      <Pressable
+                        onPress={() => setSelectedPeriod('custom')}
+                        className="flex-row items-center px-4 py-3.5 active:opacity-60"
+                      >
+                        <View
+                          style={{
+                            width: 20,
+                            height: 20,
+                            borderRadius: 10,
+                            borderWidth: selectedPeriod === 'custom' ? 6 : 2,
+                            borderColor: selectedPeriod === 'custom' ? color : isDark ? '#453B36' : '#D6CBC0',
+                            marginRight: 12,
+                          }}
+                        />
+                        <View className="flex-1">
+                          <Text
+                            className="text-base text-content dark:text-content-dark"
+                            style={selectedPeriod === 'custom' ? { fontWeight: '600', color } : undefined}
+                          >
+                            {t('reports.periodCustom')}
+                          </Text>
+                          <Text className="text-xs text-content-muted dark:text-content-muted-dark">
+                            {t('export.periodCustomSub')}
+                          </Text>
+                        </View>
+                        {selectedPeriod === 'custom' && (
+                          <IconSymbol name="checkmark" size={14} color={color} />
+                        )}
+                      </Pressable>
+                    )}
                   </View>
                 </View>
 
                 {/* Export button */}
                 <Pressable
-                  onPress={handleExport}
+                  onPress={() => handleExport('pdf')}
                   disabled={isLoading}
                   style={{ backgroundColor: color, opacity: isLoading ? 0.7 : 1 }}
                   className="rounded-xl py-4 items-center active:opacity-80 flex-row justify-center gap-2"
@@ -165,4 +260,3 @@ export function ExportModal({ visible, onClose }: ExportModalProps) {
     </Modal>
   );
 }
-

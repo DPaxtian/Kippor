@@ -17,6 +17,8 @@ export interface ExportOptions {
   accentColor: string;
   accentSoft: string;
   isDark: boolean;
+  labelIds?: number[];
+  labelNames?: string[];
 }
 
 // ─── CSV ──────────────────────────────────────────────────────────────────────
@@ -48,7 +50,7 @@ const DELIVERY_STATUS_LABEL: Record<string, string> = {
 
 export async function exportCSV(opts: ExportOptions): Promise<void> {
   const db = await getDatabase();
-  const orders = await getOrders(db, { from: opts.from, to: opts.to });
+  const orders = await getOrders(db, { from: opts.from, to: opts.to, labelIds: opts.labelIds });
 
   const headers = [
     'ID', 'Fecha', 'Cliente', 'Dirección', 'Envío',
@@ -106,16 +108,19 @@ async function getLogoBase64(): Promise<string | null> {
 export async function exportPDF(opts: ExportOptions): Promise<void> {
   const db = await getDatabase();
   const [orders, summary, topProducts] = await Promise.all([
-    getOrders(db, { from: opts.from, to: opts.to }),
-    getSalesSummary(db, opts.from, opts.to),
-    getTopProducts(db, opts.from, opts.to),
+    getOrders(db, { from: opts.from, to: opts.to, labelIds: opts.labelIds }),
+    getSalesSummary(db, opts.from, opts.to, opts.labelIds),
+    getTopProducts(db, opts.from, opts.to, opts.labelIds),
   ]);
 
   const logoBase64 = await getLogoBase64();
 
   const fromStr = format(new Date(opts.from), "d 'de' MMMM, yyyy", { locale: es });
   const toStr = format(new Date(opts.to), "d 'de' MMMM, yyyy", { locale: es });
-  const periodLabel = fromStr === toStr ? fromStr : `${fromStr} — ${toStr}`;
+  const labelsStr = opts.labelNames && opts.labelNames.length > 0
+    ? ` · ${opts.labelNames.join(', ')}`
+    : '';
+  const periodLabel = (fromStr === toStr ? fromStr : `${fromStr} — ${toStr}`) + labelsStr;
   const generatedAt = format(new Date(), "d MMM yyyy · HH:mm", { locale: es });
 
   const fmt = (v: number) => formatCurrency(v, opts.currency);
