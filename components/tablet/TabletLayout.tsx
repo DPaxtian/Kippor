@@ -14,10 +14,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
-import { format, isToday, isYesterday } from 'date-fns';
+import { format, isToday, isTomorrow, isYesterday } from 'date-fns';
 
 import { LabelChip } from '@/components/labels/LabelChip';
 import { LabelFilterBar } from '@/components/labels/LabelFilterBar';
+import { HistoryFilterModal, type HistoryFilters } from '@/components/history/HistoryFilterModal';
 import { DeliveryStatusBadge, PaymentStatusBadge } from '@/components/orders/OrderStatusBadge';
 import { DateRangePicker } from '@/components/reports/DateRangePicker';
 import { SparklineChart } from '@/components/reports/SparklineChart';
@@ -33,7 +34,7 @@ import { useLabelsStore } from '@/store/labels-store';
 import { useOrdersStore } from '@/store/orders-store';
 import { useProductsStore } from '@/store/products-store';
 import { useUIStore } from '@/store/ui-store';
-import type { Expense, ExpenseCategory, ExpenseSummary, Order, Product, ProductStat, ReportPeriod, SalesSummary } from '@/types';
+import type { Expense, ExpenseCategory, ExpenseSummary, Order, PaymentMethod, Product, ProductStat, ReportPeriod, SalesSummary } from '@/types';
 import { formatDate, formatDateTime, formatShortDate } from '@/utils/format';
 import { getDateRange } from '@/utils/dates';
 import { CustomToggle } from '@/components/ui/CustomToggle';
@@ -119,13 +120,14 @@ function TabletSidebar({ activeTab, onTab }: { activeTab: TabId; onTab: (t: TabI
 
 function TabletOrders() {
   const { t } = useTranslation();
-  const { orders, isLoading, fetchTodaysOrders, updateOrderStatus, fetchOrderById,
+  const { orders, scheduledOrders, isLoading, fetchTodaysOrders, fetchScheduledOrders, updateOrderStatus, fetchOrderById,
     selectedOrder, selectedOrderItems, selectedOrderLabels, deleteOrder, clearSelected,
     lastCreatedId, clearLastCreatedId } = useOrdersStore();
   const { orderLabelsMap, fetchLabelsForOrders } = useLabelsStore();
   const { color, soft } = useAccentColor();
   const { fmt } = useCurrency();
   const dateLocale = useDateLocale();
+  const dayHeaderFormat = useDayHeaderFormat();
   const { colorScheme } = useUIStore();
 
   const isDark = colorScheme === 'dark';
@@ -139,6 +141,7 @@ function TabletOrders() {
   const warnColor = isDark ? '#E5B257' : '#B47A1C';
 
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [activeFilter, setActiveFilter] = useState<'deliver' | 'collect' | 'scheduled' | null>(null);
 
   useFocusEffect(useCallback(() => {
     fetchTodaysOrders().then(() => {
@@ -150,12 +153,18 @@ function TabletOrders() {
         clearLastCreatedId();
       }
     });
+    fetchScheduledOrders();
     return () => clearSelected();
-  }, [fetchTodaysOrders, fetchLabelsForOrders, clearSelected, clearLastCreatedId]));
+  }, [fetchTodaysOrders, fetchScheduledOrders, fetchLabelsForOrders, clearSelected, clearLastCreatedId]));
 
   useEffect(() => {
     if (selectedId !== null) fetchOrderById(selectedId);
   }, [selectedId, fetchOrderById]);
+
+  function selectOrder(id: number) {
+    setSelectedId(id);
+    fetchOrderById(id);
+  }
 
   // Auto-select first order if nothing selected
   useEffect(() => {
@@ -165,6 +174,29 @@ function TabletOrders() {
   const todayRevenue = orders.reduce((s, o) => s + o.total, 0);
   const pendingCount = orders.filter((o) => o.delivery_status === 'pending').length;
   const unpaidCount = orders.filter((o) => o.payment_status === 'unpaid').length;
+
+  const filteredOrders = activeFilter === 'deliver'
+    ? orders.filter((o) => o.delivery_status === 'pending')
+    : activeFilter === 'collect'
+      ? orders.filter((o) => o.payment_status === 'unpaid')
+      : orders;
+
+  const scheduledGroups = useMemo(() => {
+    const map = new Map<string, Order[]>();
+    scheduledOrders.forEach((o) => {
+      const key = o.delivery_date!.slice(0, 10);
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(o);
+    });
+    return [...map.entries()].map(([dateKey, dayOrders]) => {
+      const d = new Date(`${dateKey}T12:00:00`);
+      let label = '';
+      if (isToday(d)) label = t('common.today');
+      else if (isTomorrow(d)) label = t('common.tomorrow');
+      else label = format(d, dayHeaderFormat, { locale: dateLocale });
+      return { dateKey, label, orders: dayOrders };
+    });
+  }, [scheduledOrders, dateLocale, dayHeaderFormat, t]);
 
   function handleDelete() {
     if (!selectedOrder) return;
@@ -205,11 +237,16 @@ function TabletOrders() {
                 <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>{t('orders.new')}</Text>
               </Pressable>
             </View>
-            {/* Summary strip */}
-            <View style={{ flexDirection: 'row', gap: 6 }}>
-              <SummaryCell label={t('orders.summaryEarn')} value={fmt(todayRevenue)} accent color={color} soft={soft} isDark={isDark} border={border} textColor={textColor} mutedColor={mutedColor} bgElev={bgElev} />
-              <SummaryCell label={t('orders.summaryDeliver')} value={String(pendingCount)} color={color} soft={soft} isDark={isDark} border={border} textColor={textColor} mutedColor={mutedColor} bgElev={bgElev} />
-              <SummaryCell label={t('orders.summaryCollect')} value={String(unpaidCount)} color={color} soft={soft} isDark={isDark} border={border} textColor={textColor} mutedColor={mutedColor} bgElev={bgElev} />
+            {/* Summary strip — 2x2 grid */}
+            <View style={{ gap: 6 }}>
+              <View style={{ flexDirection: 'row', gap: 6 }}>
+                <SummaryCell label={t('orders.summaryEarn')} value={fmt(todayRevenue)} accent onPress={() => setActiveFilter(null)} color={color} soft={soft} isDark={isDark} border={border} textColor={textColor} mutedColor={mutedColor} bgElev={bgElev} />
+                <SummaryCell label={t('orders.summaryDeliver')} value={String(pendingCount)} active={activeFilter === 'deliver'} onPress={() => setActiveFilter(activeFilter === 'deliver' ? null : 'deliver')} color={color} soft={soft} isDark={isDark} border={border} textColor={textColor} mutedColor={mutedColor} bgElev={bgElev} />
+              </View>
+              <View style={{ flexDirection: 'row', gap: 6 }}>
+                <SummaryCell label={t('orders.summaryCollect')} value={String(unpaidCount)} active={activeFilter === 'collect'} onPress={() => setActiveFilter(activeFilter === 'collect' ? null : 'collect')} color={color} soft={soft} isDark={isDark} border={border} textColor={textColor} mutedColor={mutedColor} bgElev={bgElev} />
+                <SummaryCell label={t('orders.summaryScheduled')} value={String(scheduledOrders.length)} active={activeFilter === 'scheduled'} onPress={() => setActiveFilter(activeFilter === 'scheduled' ? null : 'scheduled')} color={color} soft={soft} isDark={isDark} border={border} textColor={textColor} mutedColor={mutedColor} bgElev={bgElev} />
+              </View>
             </View>
           </View>
 
@@ -221,9 +258,38 @@ function TabletOrders() {
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
               <Text style={{ color: mutedColor, fontSize: 14, textAlign: 'center' }}>{t('orders.empty.title')}</Text>
             </View>
+          ) : activeFilter === 'scheduled' ? (
+            <FlatList
+              data={scheduledGroups}
+              keyExtractor={(g) => g.dateKey}
+              contentContainerStyle={{ padding: 12, paddingBottom: 24 }}
+              ListEmptyComponent={
+                <View style={{ padding: 32, alignItems: 'center' }}>
+                  <Text style={{ color: mutedColor, fontSize: 14, textAlign: 'center' }}>{t('orders.noScheduled')}</Text>
+                </View>
+              }
+              renderItem={({ item: group }) => (
+                <View style={{ marginBottom: 14 }}>
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: mutedColor, textTransform: 'uppercase', letterSpacing: 0.4, paddingHorizontal: 4, paddingBottom: 6 }}>
+                    {group.label}
+                  </Text>
+                  {group.orders.map((order) => (
+                    <OrderListRow
+                      key={order.id}
+                      order={order}
+                      labels={orderLabelsMap[order.id] ?? []}
+                      active={order.id === selectedId}
+                      onPress={() => selectOrder(order.id)}
+                      color={color} soft={soft} isDark={isDark}
+                      border={border} textColor={textColor} mutedColor={mutedColor}
+                    />
+                  ))}
+                </View>
+              )}
+            />
           ) : (
             <FlatList
-              data={orders}
+              data={filteredOrders}
               keyExtractor={(o) => String(o.id)}
               contentContainerStyle={{ padding: 12, paddingBottom: 24 }}
               renderItem={({ item }) => (
@@ -231,7 +297,7 @@ function TabletOrders() {
                   order={item}
                   labels={orderLabelsMap[item.id] ?? []}
                   active={item.id === selectedId}
-                  onPress={() => setSelectedId(item.id)}
+                  onPress={() => selectOrder(item.id)}
                   color={color} soft={soft} isDark={isDark}
                   border={border} textColor={textColor} mutedColor={mutedColor}
                 />
@@ -271,11 +337,20 @@ function TabletOrders() {
 
 // ─── History master/detail ────────────────────────────────────────────────────
 
+const DEFAULT_HISTORY_FILTERS: HistoryFilters = {
+  period: 'month',
+  customFrom: '',
+  customTo: '',
+  paymentStatus: 'all',
+  paymentMethods: [],
+  labelIds: [],
+};
+
 function TabletHistory() {
   const { t } = useTranslation();
   const { orders, isLoading, fetchOrdersByRange, fetchOrderById,
     selectedOrder, selectedOrderItems, selectedOrderLabels, clearSelected } = useOrdersStore();
-  const { labels, orderLabelsMap, fetchLabels, fetchLabelsForOrders } = useLabelsStore();
+  const { orderLabelsMap, fetchLabels, fetchLabelsForOrders } = useLabelsStore();
   const { color, soft } = useAccentColor();
   const { fmt } = useCurrency();
   const dateLocale = useDateLocale();
@@ -294,14 +369,23 @@ function TabletHistory() {
 
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<'all' | 'paid' | 'unpaid'>('all');
-  const [labelFilter, setLabelFilter] = useState<number[]>([]);
+  const [filters, setFilters] = useState<HistoryFilters>(DEFAULT_HISTORY_FILTERS);
+  const [showFilters, setShowFilters] = useState(false);
+
+  const dateRange = useMemo(() => {
+    if (filters.period === 'custom' && filters.customFrom && filters.customTo) {
+      return {
+        from: new Date(`${filters.customFrom}T00:00:00`).toISOString(),
+        to: new Date(`${filters.customTo}T23:59:59`).toISOString(),
+      };
+    }
+    if (filters.period !== 'custom') return getDateRange(filters.period);
+    return getDateRange('month');
+  }, [filters.period, filters.customFrom, filters.customTo]);
 
   useFocusEffect(useCallback(() => {
-    const to = new Date(); to.setHours(23, 59, 59, 999);
-    const from = new Date(); from.setDate(from.getDate() - 90); from.setHours(0, 0, 0, 0);
     fetchLabels();
-    fetchOrdersByRange(from.toISOString(), to.toISOString()).then(() => {
+    fetchOrdersByRange(dateRange.from, dateRange.to).then(() => {
       const ids = useOrdersStore.getState().orders.map((o) => o.id);
       fetchLabelsForOrders(ids);
     });
@@ -309,8 +393,20 @@ function TabletHistory() {
   }, [fetchOrdersByRange, fetchLabels, fetchLabelsForOrders, clearSelected]));
 
   useEffect(() => {
+    fetchOrdersByRange(dateRange.from, dateRange.to).then(() => {
+      const ids = useOrdersStore.getState().orders.map((o) => o.id);
+      fetchLabelsForOrders(ids);
+    });
+  }, [dateRange]); // eslint-disable-line
+
+  useEffect(() => {
     if (selectedId !== null) fetchOrderById(selectedId);
   }, [selectedId, fetchOrderById]);
+
+  function selectOrder(id: number) {
+    setSelectedId(id);
+    fetchOrderById(id);
+  }
 
   const todayStr = t('common.today');
   const yesterdayStr = t('common.yesterday');
@@ -318,14 +414,15 @@ function TabletHistory() {
   const groups = useMemo(() => {
     const q = search.trim().toLowerCase();
     const filtered = orders.filter((o) => {
-      if (filter === 'paid' && o.payment_status !== 'paid') return false;
-      if (filter === 'unpaid' && o.payment_status !== 'unpaid') return false;
-      if (labelFilter.length > 0) {
-        const ids = (orderLabelsMap[o.id] ?? []).map((l) => l.id);
-        if (!labelFilter.every((id) => ids.includes(id))) return false;
+      if (filters.paymentStatus === 'paid' && o.payment_status !== 'paid') return false;
+      if (filters.paymentStatus === 'unpaid' && o.payment_status !== 'unpaid') return false;
+      if (filters.paymentMethods.length > 0 && !filters.paymentMethods.includes(o.payment_method as PaymentMethod)) return false;
+      if (filters.labelIds.length > 0) {
+        const orderLabelIds = (orderLabelsMap[o.id] ?? []).map((l) => l.id);
+        if (!filters.labelIds.some((id) => orderLabelIds.includes(id))) return false;
       }
-      if (!q) return true;
-      return o.client_name.toLowerCase().includes(q);
+      if (q && !o.client_name.toLowerCase().includes(q)) return false;
+      return true;
     });
     const map = new Map<string, Order[]>();
     filtered.forEach((o) => {
@@ -341,16 +438,16 @@ function TabletHistory() {
       else label = format(d, dayHeaderFormat, { locale: dateLocale });
       return { key, label, orders: dayOrders, total: dayOrders.reduce((s, o) => s + o.total, 0) };
     });
-  }, [orders, search, filter, labelFilter, orderLabelsMap, todayStr, yesterdayStr, dateLocale, dayHeaderFormat]);
+  }, [orders, search, filters, orderLabelsMap, todayStr, yesterdayStr, dateLocale, dayHeaderFormat]);
 
   const totalRevenue = groups.reduce((s, g) => s + g.total, 0);
   const totalCount = groups.reduce((s, g) => s + g.orders.length, 0);
 
-  const FILTERS = [
-    { key: 'all' as const, label: t('history.filterAll') },
-    { key: 'paid' as const, label: t('history.filterPaid') },
-    { key: 'unpaid' as const, label: t('history.filterUnpaid') },
-  ];
+  const activeFilterCount =
+    (filters.period !== 'month' ? 1 : 0) +
+    (filters.paymentStatus !== 'all' ? 1 : 0) +
+    (filters.paymentMethods.length > 0 ? 1 : 0) +
+    (filters.labelIds.length > 0 ? 1 : 0);
 
   return (
     <View style={{ flex: 1, flexDirection: 'row' }}>
@@ -366,36 +463,40 @@ function TabletHistory() {
               <SummaryCell label={t('history.totalRevenue')} value={fmt(totalRevenue)} accent color={color} soft={soft} isDark={isDark} border={border} textColor={textColor} mutedColor={mutedColor} bgElev={bgElev} />
               <SummaryCell label={t('history.totalOrders')} value={String(totalCount)} color={color} soft={soft} isDark={isDark} border={border} textColor={textColor} mutedColor={mutedColor} bgElev={bgElev} />
             </View>
-            {/* Search */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: bg, borderWidth: 1, borderColor: border, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 8 }}>
-              <IconSymbol name="magnifyingglass" size={15} color={subtleColor} />
-              <TextInput
-                value={search}
-                onChangeText={setSearch}
-                placeholder={t('history.searchPlaceholder')}
-                placeholderTextColor={subtleColor}
-                style={{ flex: 1, fontSize: 13.5, color: textColor, padding: 0 }}
-              />
-            </View>
-            {/* Filter chips */}
-            <View style={{ flexDirection: 'row', gap: 4 }}>
-              {FILTERS.map(({ key, label }) => {
-                const active = filter === key;
-                return (
-                  <Pressable key={key} onPress={() => setFilter(key)}
-                    style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, backgroundColor: active ? color : bgElev, borderWidth: 1, borderColor: active ? color : border }}
-                    className="active:opacity-70"
-                  >
-                    <Text style={{ fontSize: 11.5, fontWeight: '600', color: active ? '#fff' : textColor }}>{label}</Text>
+            {/* Search + filter button */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: bg, borderWidth: 1, borderColor: border, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6 }}>
+                <IconSymbol name="magnifyingglass" size={15} color={subtleColor} />
+                <TextInput
+                  value={search}
+                  onChangeText={setSearch}
+                  placeholder={t('history.searchPlaceholder')}
+                  placeholderTextColor={subtleColor}
+                  style={{ flex: 1, fontSize: 13.5, color: textColor, padding: 0 }}
+                />
+                {search.length > 0 && (
+                  <Pressable onPress={() => setSearch('')} className="active:opacity-60">
+                    <IconSymbol name="xmark.circle.fill" size={15} color={subtleColor} />
                   </Pressable>
-                );
-              })}
-            </View>
-            {labels.length > 0 && (
-              <View style={{ marginTop: 10 }}>
-                <LabelFilterBar labels={labels} selectedIds={labelFilter} onChange={setLabelFilter} label={t('history.filterLabel')} />
+                )}
               </View>
-            )}
+              <Pressable
+                onPress={() => setShowFilters(true)}
+                style={{ width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: activeFilterCount > 0 ? color : bgElev, borderWidth: 1, borderColor: activeFilterCount > 0 ? color : border }}
+                className="active:opacity-70"
+              >
+                <IconSymbol name="line.3.horizontal.decrease" size={16} color={activeFilterCount > 0 ? '#fff' : subtleColor} />
+              </Pressable>
+              {activeFilterCount > 0 && (
+                <Pressable
+                  onPress={() => setFilters(DEFAULT_HISTORY_FILTERS)}
+                  style={{ width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: bgElev, borderWidth: 1, borderColor: border }}
+                  className="active:opacity-70"
+                >
+                  <IconSymbol name="xmark" size={14} color={subtleColor} />
+                </Pressable>
+              )}
+            </View>
           </View>
 
           {isLoading && orders.length === 0 ? (
@@ -425,7 +526,7 @@ function TabletHistory() {
                       order={order}
                       labels={orderLabelsMap[order.id] ?? []}
                       active={order.id === selectedId}
-                      onPress={() => setSelectedId(order.id)}
+                      onPress={() => selectOrder(order.id)}
                       color={color} soft={soft} isDark={isDark}
                       border={border} textColor={textColor} mutedColor={mutedColor}
                     />
@@ -458,6 +559,13 @@ function TabletHistory() {
           <EmptyDetailHint icon="clock.fill" label={t('history.selectHint')} color={mutedColor} subtleColor={subtleColor} />
         )}
       </View>
+
+      <HistoryFilterModal
+        visible={showFilters}
+        filters={filters}
+        onChange={setFilters}
+        onClose={() => setShowFilters(false)}
+      />
     </View>
   );
 }
@@ -631,6 +739,7 @@ function TabletReports() {
   const WEEK_LABELS = t('reports.weekDays', { returnObjects: true }) as string[];
 
   const [labelFilter, setLabelFilter] = useState<number[]>([]);
+  const [showExportModal, setShowExportModal] = useState(false);
   const [summary, setSummary] = useState<SalesSummary | null>(null);
   const [expenseSummary, setExpenseSummary] = useState<ExpenseSummary | null>(null);
   const [topProducts, setTopProducts] = useState<ProductStat[]>([]);
@@ -676,7 +785,17 @@ function TabletReports() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: bg }} edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={{ padding: 32, paddingBottom: 60, maxWidth: 900, width: '100%', alignSelf: 'center' }}>
-        <Text style={{ fontSize: 28, fontWeight: '700', color: textColor, letterSpacing: -0.6, marginBottom: 20 }}>{t('tabs.reports')}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <Text style={{ fontSize: 28, fontWeight: '700', color: textColor, letterSpacing: -0.6 }}>{t('tabs.reports')}</Text>
+          <Pressable
+            onPress={() => setShowExportModal(true)}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, backgroundColor: color }}
+            className="active:opacity-80"
+          >
+            <IconSymbol name="square.and.arrow.up" size={15} color="#fff" />
+            <Text style={{ color: '#fff', fontSize: 13.5, fontWeight: '600' }}>{t('reports.export')}</Text>
+          </Pressable>
+        </View>
         <DateRangePicker
           selected={reportPeriod} customFrom={customFrom} customTo={customTo}
           onSelectPeriod={(p) => { setReportPeriod(p); if (p !== 'custom') setReportDateRange(getDateRange(p)); }}
@@ -711,20 +830,28 @@ function TabletReports() {
                   <Text style={{ fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 6, color: summary.totalRevenue - expenseSummary.totalExpenses >= 0 ? '#22C55E' : '#EF4444' }}>{t('reports.netProfit')}</Text>
                   <Text style={{ fontSize: 24, fontWeight: '700', color: summary.totalRevenue - expenseSummary.totalExpenses >= 0 ? '#22C55E' : '#EF4444' }} numberOfLines={1} adjustsFontSizeToFit>{fmt(summary.totalRevenue - expenseSummary.totalExpenses)}</Text>
                 </View>
-                <View style={{ flex: 1, backgroundColor: bgElev, borderRadius: 16, borderWidth: 1, borderColor: border, padding: 16 }}>
-                  <Text style={{ color: mutedColor, fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 6 }}>{t('reports.orders')}</Text>
-                  <Text style={{ color: textColor, fontSize: 24, fontWeight: '700' }}>{summary.totalOrders}</Text>
-                </View>
               </View>
             )}
-            {!expenseSummary && (
-              <View style={{ marginBottom: 12 }}>
-                <View style={{ backgroundColor: bgElev, borderRadius: 16, borderWidth: 1, borderColor: border, padding: 16 }}>
-                  <Text style={{ color: mutedColor, fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 6 }}>{t('reports.orders')}</Text>
-                  <Text style={{ color: textColor, fontSize: 24, fontWeight: '700' }}>{summary.totalOrders}</Text>
-                </View>
+
+            {/* Pedidos + desglose por método */}
+            <View style={{ backgroundColor: bgElev, borderRadius: 16, borderWidth: 1, borderColor: border, padding: 16, marginBottom: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 12 }}>
+                <Text style={{ color: mutedColor, fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3 }}>{t('reports.orders')}</Text>
+                <Text style={{ color: textColor, fontSize: 24, fontWeight: '700' }}>{summary.totalOrders}</Text>
               </View>
-            )}
+              <View style={{ flexDirection: 'row', borderTopWidth: 0.5, borderTopColor: border, paddingTop: 12, gap: 8 }}>
+                {[
+                  { labelKey: 'paymentMethod.cash', value: summary.cashRevenue },
+                  { labelKey: 'paymentMethod.card', value: summary.cardRevenue },
+                  { labelKey: 'paymentMethod.transfer', value: summary.transferRevenue },
+                ].map(({ labelKey, value }, index, arr) => (
+                  <View key={labelKey} style={{ flex: 1, alignItems: 'center', borderRightWidth: index < arr.length - 1 ? 0.5 : 0, borderRightColor: border }}>
+                    <Text style={{ fontSize: 11, color: mutedColor, marginBottom: 4 }}>{t(labelKey as any)}</Text>
+                    <Text style={{ fontSize: 15, fontWeight: '700', color: value > 0 ? textColor : mutedColor }}>{fmt(value)}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
 
             {/* Gastos por categoría */}
             {expenseSummary && expenseSummary.byCategory.length > 0 && (
@@ -780,6 +907,14 @@ function TabletReports() {
           </>
         ) : null}
       </ScrollView>
+
+      <ExportModal
+        visible={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        initialPeriod={reportPeriod}
+        initialDateRange={reportDateRange}
+        initialLabelIds={labelFilter.length > 0 ? labelFilter : undefined}
+      />
     </SafeAreaView>
   );
 }
@@ -789,6 +924,7 @@ function TabletReports() {
 function TabletExpenses() {
   const { t } = useTranslation();
   const { expenses, isLoading, fetchExpensesByRange, fetchExpenseById, selectedExpense, deleteExpense, clearSelected } = require('@/store/expenses-store').useExpensesStore();
+  const { labels, fetchLabels } = useLabelsStore();
   const { color } = useAccentColor();
   const { fmt } = useCurrency();
   const dateLocale = useDateLocale();
@@ -801,23 +937,59 @@ function TabletExpenses() {
   const bgElev = isDark ? '#211C19' : '#FFFFFF';
   const textColor = isDark ? '#F4EDE7' : '#1F1815';
   const mutedColor = isDark ? '#B8ADA5' : '#6B5D54';
+  const subtleColor = isDark ? '#7A6E66' : '#9A8A80';
 
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<ExpenseCategory | 'all'>('all');
+  const [labelFilter, setLabelFilter] = useState<number[]>([]);
+  const [period, setPeriod] = useState<ReportPeriod>('month');
+  const [dateRange, setDateRange] = useState(() => getDateRange('month'));
+  const [customFrom, setCustomFrom] = useState('');
+  const [customTo, setCustomTo] = useState('');
 
   useFocusEffect(useCallback(() => {
-    const to = new Date(); to.setHours(23, 59, 59, 999);
-    const from = new Date(); from.setDate(from.getDate() - 90); from.setHours(0, 0, 0, 0);
-    fetchExpensesByRange(from.toISOString(), to.toISOString());
+    fetchLabels();
+    fetchExpensesByRange(dateRange.from, dateRange.to);
     return () => clearSelected();
-  }, [fetchExpensesByRange, clearSelected]));
+  }, [fetchExpensesByRange, fetchLabels, clearSelected, dateRange]));
+
+  useEffect(() => {
+    fetchExpensesByRange(dateRange.from, dateRange.to);
+  }, [dateRange]); // eslint-disable-line
 
   useEffect(() => {
     if (selectedId !== null) fetchExpenseById(selectedId);
   }, [selectedId, fetchExpenseById]);
 
+  function selectExpense(id: number) {
+    setSelectedId(id);
+    fetchExpenseById(id);
+  }
+
+  function handleSelectPeriod(p: ReportPeriod) {
+    setPeriod(p);
+    if (p !== 'custom') setDateRange(getDateRange(p));
+  }
+
+  function handleCustomToChange(dateStr: string) {
+    setCustomTo(dateStr);
+    if (customFrom && dateStr) {
+      setDateRange({
+        from: new Date(`${customFrom}T00:00:00`).toISOString(),
+        to: new Date(`${dateStr}T23:59:59`).toISOString(),
+      });
+    }
+  }
+
   const groups = useMemo(() => {
-    const filtered = categoryFilter === 'all' ? expenses : expenses.filter((e: Expense) => e.category === categoryFilter);
+    const filtered = expenses.filter((e: Expense) => {
+      if (categoryFilter !== 'all' && e.category !== categoryFilter) return false;
+      if (labelFilter.length > 0) {
+        const expLabelIds = (e.labels ?? []).map((l: any) => l.id);
+        if (!labelFilter.some((id) => expLabelIds.includes(id))) return false;
+      }
+      return true;
+    });
     const map = new Map<string, Expense[]>();
     filtered.forEach((e: Expense) => {
       const key = format(new Date(e.date), 'yyyy-MM-dd');
@@ -832,9 +1004,10 @@ function TabletExpenses() {
       else label = format(d, dayHeaderFormat, { locale: dateLocale });
       return { key, label, expenses: dayExpenses as Expense[], total: (dayExpenses as Expense[]).reduce((s, e) => s + e.amount, 0) };
     });
-  }, [expenses, categoryFilter, dateLocale, dayHeaderFormat, t]);
+  }, [expenses, categoryFilter, labelFilter, dateLocale, dayHeaderFormat, t]);
 
   const totalExpenses = groups.reduce((s, g) => s + g.total, 0);
+  const totalCount = groups.reduce((s, g) => s + g.expenses.length, 0);
 
   function handleDelete(id: number) {
     Alert.alert(t('expenses.deleteTitle'), t('expenses.deleteMessage'), [
@@ -848,8 +1021,8 @@ function TabletExpenses() {
       {/* Master list */}
       <View style={{ width: 380, flexShrink: 0, borderRightWidth: 0.5, borderRightColor: border, backgroundColor: bgElev }}>
         <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-          <View style={{ padding: 20, paddingBottom: 12, borderBottomWidth: 0.5, borderBottomColor: border }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
               <Text style={{ fontSize: 24, fontWeight: '700', color: textColor, letterSpacing: -0.5 }}>{t('tabs.expenses')}</Text>
               <Pressable
                 onPress={() => router.push('/expenses/new')}
@@ -860,14 +1033,31 @@ function TabletExpenses() {
                 <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>{t('expenses.new')}</Text>
               </Pressable>
             </View>
+
+            {/* DateRangePicker */}
+            <DateRangePicker
+              selected={period}
+              customFrom={customFrom}
+              customTo={customTo}
+              onSelectPeriod={handleSelectPeriod}
+              onCustomFromChange={(v) => setCustomFrom(v)}
+              onCustomToChange={handleCustomToChange}
+            />
+
+            {/* Stats */}
             <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12 }}>
               <View style={{ flex: 1, backgroundColor: '#EF444422', borderRadius: 12, borderWidth: 1, borderColor: '#EF444444', padding: 10 }}>
                 <Text style={{ color: '#EF4444', fontSize: 10, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 4 }}>{t('expenses.totalExpenses')}</Text>
                 <Text style={{ color: '#EF4444', fontSize: 18, fontWeight: '700' }} numberOfLines={1}>{fmt(totalExpenses)}</Text>
               </View>
+              <View style={{ flex: 1, backgroundColor: bgElev, borderRadius: 12, borderWidth: 1, borderColor: border, padding: 10 }}>
+                <Text style={{ color: mutedColor, fontSize: 10, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 4 }}>{t('expenses.title')}</Text>
+                <Text style={{ color: textColor, fontSize: 18, fontWeight: '700' }}>{totalCount}</Text>
+              </View>
             </View>
+
             {/* Category filter chips */}
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 10 }}>
               <Pressable onPress={() => setCategoryFilter('all')}
                 style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, backgroundColor: categoryFilter === 'all' ? color : bgElev, borderWidth: 1, borderColor: categoryFilter === 'all' ? color : border }}
                 className="active:opacity-70"
@@ -887,7 +1077,14 @@ function TabletExpenses() {
                 );
               })}
             </View>
-          </View>
+
+            {/* Label filter */}
+            {labels.length > 0 && (
+              <View style={{ marginBottom: 10 }}>
+                <LabelFilterBar labels={labels} selectedIds={labelFilter} onChange={setLabelFilter} />
+              </View>
+            )}
+          </ScrollView>
 
           {isLoading && expenses.length === 0 ? (
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={color} /></View>
@@ -915,7 +1112,7 @@ function TabletExpenses() {
                       return (
                         <Pressable
                           key={expense.id}
-                          onPress={() => setSelectedId(expense.id)}
+                          onPress={() => selectExpense(expense.id)}
                           style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: isActive ? catColor + '18' : 'transparent', borderBottomWidth: index < group.expenses.length - 1 ? 0.5 : 0, borderBottomColor: border }}
                           className="active:opacity-70"
                         >
@@ -1015,16 +1212,21 @@ export function TabletLayout() {
 
 // ─── Shared sub-components ────────────────────────────────────────────────────
 
-function SummaryCell({ label, value, accent, color, soft, isDark, border, textColor, mutedColor, bgElev }: {
-  label: string; value: string; accent?: boolean;
+function SummaryCell({ label, value, accent, active, onPress, color, soft, isDark, border, textColor, mutedColor, bgElev }: {
+  label: string; value: string; accent?: boolean; active?: boolean; onPress?: () => void;
   color: string; soft: string; isDark: boolean; border: string;
   textColor: string; mutedColor: string; bgElev: string;
 }) {
+  const isHighlighted = accent || active;
   return (
-    <View style={{ flex: 1, backgroundColor: accent ? soft : bgElev, borderRadius: 12, padding: 10, borderWidth: accent ? 0 : 1, borderColor: border, minHeight: 52 }}>
-      <Text style={{ fontSize: 10, fontWeight: '600', color: accent ? color : mutedColor, textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 2 }} numberOfLines={1}>{label}</Text>
-      <Text style={{ fontSize: 16, fontWeight: '700', color: accent ? color : textColor, letterSpacing: -0.4 }} numberOfLines={1}>{value}</Text>
-    </View>
+    <Pressable
+      onPress={onPress}
+      style={{ flex: 1, backgroundColor: isHighlighted ? soft : bgElev, borderRadius: 12, padding: 10, borderWidth: isHighlighted ? 0 : 1, borderColor: border, minHeight: 52 }}
+      className="active:opacity-70"
+    >
+      <Text style={{ fontSize: 10, fontWeight: '600', color: isHighlighted ? color : mutedColor, textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 2 }} numberOfLines={1}>{label}</Text>
+      <Text style={{ fontSize: 16, fontWeight: '700', color: isHighlighted ? color : textColor, letterSpacing: -0.4 }} numberOfLines={1}>{value}</Text>
+    </Pressable>
   );
 }
 

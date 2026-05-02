@@ -56,7 +56,25 @@ export async function getTodaysOrders(db: SQLiteDatabase): Promise<Order[]> {
   const today = new Date();
   const from = new Date(today.setHours(0, 0, 0, 0)).toISOString();
   const to = new Date(today.setHours(23, 59, 59, 999)).toISOString();
-  return getOrders(db, { from, to });
+  const todayDate = from.slice(0, 10);
+  return db.getAllAsync<Order>(
+    `SELECT * FROM orders
+     WHERE (created_at >= ? AND created_at <= ?)
+        OR (delivery_date >= ? AND delivery_date < ?)
+     ORDER BY created_at DESC`,
+    [from, to, todayDate, todayDate + 'T23:59:59.999Z']
+  );
+}
+
+export async function getScheduledOrders(db: SQLiteDatabase): Promise<Order[]> {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return db.getAllAsync<Order>(
+    `SELECT * FROM orders
+     WHERE delivery_date >= ? AND delivery_status = 'pending'
+     ORDER BY delivery_date ASC`,
+    [today.toISOString()]
+  );
 }
 
 export async function getOrderById(

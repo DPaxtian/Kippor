@@ -4,14 +4,18 @@ import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ExpenseRow } from '@/components/expenses/ExpenseRow';
+import { LabelFilterBar } from '@/components/labels/LabelFilterBar';
+import { DateRangePicker } from '@/components/reports/DateRangePicker';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_COLORS } from '@/constants/expense-categories';
 import { useAccentColor } from '@/hooks/use-accent-color';
 import { useCurrency } from '@/hooks/use-currency';
 import { useDateLocale, useDayHeaderFormat } from '@/hooks/use-locale';
 import { useExpensesStore } from '@/store/expenses-store';
+import { useLabelsStore } from '@/store/labels-store';
 import { useUIStore } from '@/store/ui-store';
-import type { Expense, ExpenseCategory } from '@/types';
+import type { Expense, ExpenseCategory, ReportPeriod } from '@/types';
+import { getDateRange } from '@/utils/dates';
 import { format, isToday, isYesterday } from 'date-fns';
 import type { Locale } from 'date-fns';
 
@@ -32,34 +36,60 @@ function formatDayLabel(isoString: string, today: string, yesterday: string, loc
 export default function ExpensesScreen() {
   const { t } = useTranslation();
   const { expenses, isLoading, fetchExpensesByRange } = useExpensesStore();
+  const { labels, fetchLabels } = useLabelsStore();
   const { colorScheme } = useUIStore();
   const { color, soft } = useAccentColor();
   const { fmt } = useCurrency();
   const dateLocale = useDateLocale();
   const dayHeaderFormat = useDayHeaderFormat();
 
+  const [period, setPeriod] = useState<ReportPeriod>('month');
+  const [dateRange, setDateRange] = useState(() => getDateRange('month'));
+  const [customFrom, setCustomFrom] = useState('');
+  const [customTo, setCustomTo] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<ExpenseCategory | 'all'>('all');
+  const [labelFilter, setLabelFilter] = useState<number[]>([]);
 
   const iconColor = colorScheme === 'dark' ? '#7A6E66' : '#9A8A80';
 
   useFocusEffect(
     useCallback(() => {
-      const to = new Date();
-      to.setHours(23, 59, 59, 999);
-      const from = new Date();
-      from.setDate(from.getDate() - 90);
-      from.setHours(0, 0, 0, 0);
-      fetchExpensesByRange(from.toISOString(), to.toISOString());
-    }, [fetchExpensesByRange])
+      fetchLabels();
+      fetchExpensesByRange(dateRange.from, dateRange.to);
+    }, [fetchExpensesByRange, fetchLabels, dateRange])
   );
+
+  function handleSelectPeriod(p: ReportPeriod) {
+    setPeriod(p);
+    if (p !== 'custom') {
+      const range = getDateRange(p);
+      setDateRange(range);
+    }
+  }
+
+  function handleCustomToChange(dateStr: string) {
+    setCustomTo(dateStr);
+    if (customFrom && dateStr) {
+      const range = {
+        from: new Date(`${customFrom}T00:00:00`).toISOString(),
+        to: new Date(`${dateStr}T23:59:59`).toISOString(),
+      };
+      setDateRange(range);
+    }
+  }
 
   const todayStr = t('common.today');
   const yesterdayStr = t('common.yesterday');
 
   const groups = useMemo<DayGroup[]>(() => {
-    const filtered = categoryFilter === 'all'
-      ? expenses
-      : expenses.filter((e) => e.category === categoryFilter);
+    const filtered = expenses.filter((e) => {
+      if (categoryFilter !== 'all' && e.category !== categoryFilter) return false;
+      if (labelFilter.length > 0) {
+        const expLabelIds = (e.labels ?? []).map((l) => l.id);
+        if (!labelFilter.some((id) => expLabelIds.includes(id))) return false;
+      }
+      return true;
+    });
 
     const map = new Map<string, Expense[]>();
     filtered.forEach((e) => {
@@ -75,10 +105,10 @@ export default function ExpensesScreen() {
       expenses: dayExpenses,
       dayTotal: dayExpenses.reduce((s, e) => s + e.amount, 0),
     }));
-  }, [expenses, categoryFilter, todayStr, yesterdayStr, dateLocale, dayHeaderFormat]);
+  }, [expenses, categoryFilter, labelFilter, todayStr, yesterdayStr, dateLocale, dayHeaderFormat]);
 
   const totalExpenses = groups.reduce((s, g) => s + g.dayTotal, 0);
-  const totalCount = expenses.filter((e) => categoryFilter === 'all' || e.category === categoryFilter).length;
+  const totalCount = groups.reduce((s, g) => s + g.expenses.length, 0);
 
   return (
     <SafeAreaView className="flex-1 bg-surface dark:bg-surface-dark" edges={[]}>
@@ -93,6 +123,16 @@ export default function ExpensesScreen() {
           contentContainerClassName="px-4 pt-4 pb-10"
           ListHeaderComponent={
             <View className="mb-2">
+              {/* Selector de período */}
+              <DateRangePicker
+                selected={period}
+                customFrom={customFrom}
+                customTo={customTo}
+                onSelectPeriod={handleSelectPeriod}
+                onCustomFromChange={(v) => setCustomFrom(v)}
+                onCustomToChange={handleCustomToChange}
+              />
+
               {/* Stats */}
               <View className="flex-row gap-3 mb-4">
                 <View style={{ backgroundColor: '#EF444422' }} className="flex-1 rounded-2xl px-3 py-2.5">
@@ -113,7 +153,6 @@ export default function ExpensesScreen() {
 
               {/* Filtro por categoría */}
               <View className="flex-row flex-wrap gap-2 mb-4">
-                {/* Chip "Todos" */}
                 <Pressable
                   onPress={() => setCategoryFilter('all')}
                   style={categoryFilter === 'all' ? { backgroundColor: color, borderColor: color } : undefined}
@@ -124,7 +163,6 @@ export default function ExpensesScreen() {
                   </Text>
                 </Pressable>
 
-                {/* Chips de categorías que tienen gastos */}
                 {EXPENSE_CATEGORIES.filter((cat) => expenses.some((e) => e.category === cat.key)).map((cat) => {
                   const isActive = categoryFilter === cat.key;
                   const catColor = EXPENSE_CATEGORY_COLORS[cat.key];
@@ -147,6 +185,9 @@ export default function ExpensesScreen() {
                   );
                 })}
               </View>
+
+              {/* Filtro por etiqueta */}
+              <LabelFilterBar labels={labels} selectedIds={labelFilter} onChange={setLabelFilter} />
             </View>
           }
           renderItem={({ item: group }) => (

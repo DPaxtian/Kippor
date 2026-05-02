@@ -3,6 +3,7 @@ import { getDatabase } from '@/db/database';
 import {
   getOrders,
   getTodaysOrders,
+  getScheduledOrders,
   getOrderById,
   createOrder,
   updateOrder,
@@ -25,6 +26,7 @@ import type {
 
 interface OrdersState {
   orders: Order[];
+  scheduledOrders: Order[];
   selectedOrder: Order | null;
   selectedOrderItems: OrderItem[];
   selectedOrderLabels: Label[];
@@ -32,6 +34,7 @@ interface OrdersState {
   error: string | null;
   lastCreatedId: number | null;
   fetchTodaysOrders: () => Promise<void>;
+  fetchScheduledOrders: () => Promise<void>;
   fetchOrdersByRange: (from: string, to: string) => Promise<void>;
   fetchOrderById: (id: number) => Promise<void>;
   createOrder: (
@@ -58,6 +61,7 @@ interface OrdersState {
 
 export const useOrdersStore = create<OrdersState>((set, get) => ({
   orders: [],
+  scheduledOrders: [],
   selectedOrder: null,
   selectedOrderItems: [],
   selectedOrderLabels: [],
@@ -73,6 +77,16 @@ export const useOrdersStore = create<OrdersState>((set, get) => ({
       set({ orders, isLoading: false });
     } catch (e) {
       set({ error: String(e), isLoading: false });
+    }
+  },
+
+  fetchScheduledOrders: async () => {
+    try {
+      const db = await getDatabase();
+      const scheduledOrders = await getScheduledOrders(db);
+      set({ scheduledOrders });
+    } catch (e) {
+      console.error('fetchScheduledOrders:', e);
     }
   },
 

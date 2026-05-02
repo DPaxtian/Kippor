@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -59,7 +59,7 @@ export default function ReportsScreen() {
         getTopProducts(db, reportDateRange.from, reportDateRange.to, labelIds),
         getWeeklyRevenue(db, new Date(reportDateRange.to), labelIds),
         getPreviousPeriodRevenue(db, reportDateRange.from, reportDateRange.to, labelIds),
-        getExpenseSummaryForPeriod(db, reportDateRange.from, reportDateRange.to),
+        getExpenseSummaryForPeriod(db, reportDateRange.from, reportDateRange.to, labelIds),
       ]);
       setSummary(s); setTopProducts(products); setWeeklyRevenue(weekly); setPreviousRevenue(prevRev);
       setExpenseSummary(expSummary);
@@ -82,7 +82,6 @@ export default function ReportsScreen() {
   }
 
   const maxQty = topProducts.length > 0 ? topProducts[0].totalQuantity : 1;
-
 
   return (
     <SafeAreaView className="flex-1 bg-surface dark:bg-surface-dark" edges={[]}>
@@ -133,14 +132,6 @@ export default function ReportsScreen() {
               <SparklineChart data={weeklyRevenue} labels={WEEK_LABELS} />
             </View>
 
-            {/* Pedidos */}
-            <View className="mb-5">
-              <View className="bg-surface-elevated dark:bg-surface-elevated-dark border border-border dark:border-border-dark rounded-2xl p-4">
-                <Text className="text-content-muted dark:text-content-muted-dark text-xs font-semibold uppercase tracking-wider mb-1">{t('reports.orders')}</Text>
-                <Text className="text-content dark:text-content-dark text-2xl font-bold">{summary.totalOrders}</Text>
-              </View>
-            </View>
-
             {/* Ganancia neta */}
             {expenseSummary && (
               <View className="flex-row gap-3 mb-5">
@@ -148,7 +139,7 @@ export default function ReportsScreen() {
                   <Text className="text-content-muted dark:text-content-muted-dark text-xs font-semibold uppercase tracking-wider mb-1">
                     {t('reports.totalExpenses')}
                   </Text>
-                  <Text className="text-red-500 text-2xl font-bold" numberOfLines={1} adjustsFontSizeToFit>
+                  <Text className="text-red-500 text-2xl font-bold" numberOfLines={1}>
                     {fmt(expenseSummary.totalExpenses)}
                   </Text>
                 </View>
@@ -170,13 +161,36 @@ export default function ReportsScreen() {
                     className="text-2xl font-bold"
                     style={{ color: summary.totalRevenue - expenseSummary.totalExpenses >= 0 ? '#22C55E' : '#EF4444' }}
                     numberOfLines={1}
-                    adjustsFontSizeToFit
                   >
                     {fmt(summary.totalRevenue - expenseSummary.totalExpenses)}
                   </Text>
                 </View>
               </View>
             )}
+
+            {/* Pedidos + desglose por método de pago */}
+            <View className="mb-5">
+              <View className="bg-surface-elevated dark:bg-surface-elevated-dark border border-border dark:border-border-dark rounded-2xl p-4">
+                <View className="flex-row items-baseline justify-between mb-3">
+                  <Text className="text-content-muted dark:text-content-muted-dark text-xs font-semibold uppercase tracking-wider">{t('reports.orders')}</Text>
+                  <Text className="text-content dark:text-content-dark text-2xl font-bold">{summary.totalOrders}</Text>
+                </View>
+                <View className="border-t border-border dark:border-border-dark pt-3 gap-2">
+                  {[
+                    { labelKey: 'paymentMethod.cash', value: summary.cashRevenue },
+                    { labelKey: 'paymentMethod.card', value: summary.cardRevenue },
+                    { labelKey: 'paymentMethod.transfer', value: summary.transferRevenue },
+                  ].map(({ labelKey, value }) => (
+                    <View key={labelKey} className="flex-row items-center justify-between">
+                      <Text className="text-sm text-content-muted dark:text-content-muted-dark">{t(labelKey as any)}</Text>
+                      <Text className={`text-sm font-semibold ${value > 0 ? 'text-content dark:text-content-dark' : 'text-content-muted dark:text-content-muted-dark'}`}>
+                        {fmt(value)}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            </View>
 
             {/* Gastos por categoría */}
             {expenseSummary && expenseSummary.byCategory.length > 0 && (

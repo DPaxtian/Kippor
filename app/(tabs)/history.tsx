@@ -6,19 +6,17 @@ import { AppTextInput } from '@/components/ui/AppTextInput';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { LabelChip } from '@/components/labels/LabelChip';
-import { LabelFilterBar } from '@/components/labels/LabelFilterBar';
+import { HistoryFilterModal, type HistoryFilters } from '@/components/history/HistoryFilterModal';
 import { useAccentColor } from '@/hooks/use-accent-color';
 import { useCurrency } from '@/hooks/use-currency';
 import { useLabelsStore } from '@/store/labels-store';
 import { useOrdersStore } from '@/store/orders-store';
 import { useUIStore } from '@/store/ui-store';
-import { formatShortDate } from '@/utils/format';
-import type { Order } from '@/types';
+import { getDateRange } from '@/utils/dates';
+import type { Order, PaymentMethod } from '@/types';
 import { format, isToday, isYesterday } from 'date-fns';
 import type { Locale } from 'date-fns';
 import { useDateLocale, useDayHeaderFormat } from '@/hooks/use-locale';
-
-type FilterKey = 'all' | 'paid' | 'unpaid';
 
 interface DayGroup {
   dateKey: string;
@@ -34,6 +32,15 @@ function formatDayLabel(isoString: string, today: string, yesterday: string, loc
   return format(date, dayHeaderFormat, { locale });
 }
 
+const DEFAULT_FILTERS: HistoryFilters = {
+  period: 'month',
+  customFrom: '',
+  customTo: '',
+  paymentStatus: 'all',
+  paymentMethods: [],
+  labelIds: [],
+};
+
 export default function HistoryScreen() {
   const { t } = useTranslation();
   const { orders, isLoading, fetchOrdersByRange } = useOrdersStore();
@@ -45,24 +52,32 @@ export default function HistoryScreen() {
   const dayHeaderFormat = useDayHeaderFormat();
 
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<FilterKey>('all');
-  const [labelFilter, setLabelFilter] = useState<number[]>([]);
+  const [filters, setFilters] = useState<HistoryFilters>(DEFAULT_FILTERS);
+  const [showFilters, setShowFilters] = useState(false);
 
   const iconColor = colorScheme === 'dark' ? '#7A6E66' : '#9A8A80';
 
+  const dateRange = useMemo(() => {
+    if (filters.period === 'custom' && filters.customFrom && filters.customTo) {
+      return {
+        from: new Date(`${filters.customFrom}T00:00:00`).toISOString(),
+        to: new Date(`${filters.customTo}T23:59:59`).toISOString(),
+      };
+    }
+    if (filters.period !== 'custom') return getDateRange(filters.period);
+    return getDateRange('month');
+  }, [filters.period, filters.customFrom, filters.customTo]);
+
   useEffect(() => {
-    // Carga los últimos 90 días
-    const to = new Date();
-    to.setHours(23, 59, 59, 999);
-    const from = new Date();
-    from.setDate(from.getDate() - 90);
-    from.setHours(0, 0, 0, 0);
     fetchLabels();
-    fetchOrdersByRange(from.toISOString(), to.toISOString()).then(() => {
+  }, []); // eslint-disable-line
+
+  useEffect(() => {
+    fetchOrdersByRange(dateRange.from, dateRange.to).then(() => {
       const ids = useOrdersStore.getState().orders.map((o) => o.id);
       fetchLabelsForOrders(ids);
     });
-  }, []); // eslint-disable-line
+  }, [dateRange]); // eslint-disable-line
 
   const todayStr = t('common.today');
   const yesterdayStr = t('common.yesterday');
@@ -71,14 +86,15 @@ export default function HistoryScreen() {
     const q = search.trim().toLowerCase();
 
     const filtered = orders.filter((o) => {
-      if (filter === 'paid' && o.payment_status !== 'paid') return false;
-      if (filter === 'unpaid' && o.payment_status !== 'unpaid') return false;
-      if (labelFilter.length > 0) {
+      if (filters.paymentStatus === 'paid' && o.payment_status !== 'paid') return false;
+      if (filters.paymentStatus === 'unpaid' && o.payment_status !== 'unpaid') return false;
+      if (filters.paymentMethods.length > 0 && !filters.paymentMethods.includes(o.payment_method as PaymentMethod)) return false;
+      if (filters.labelIds.length > 0) {
         const orderLabelIds = (orderLabelsMap[o.id] ?? []).map((l) => l.id);
-        if (!labelFilter.some((id) => orderLabelIds.includes(id))) return false;
+        if (!filters.labelIds.some((id) => orderLabelIds.includes(id))) return false;
       }
-      if (!q) return true;
-      return o.client_name.toLowerCase().includes(q);
+      if (q && !o.client_name.toLowerCase().includes(q)) return false;
+      return true;
     });
 
     const map = new Map<string, Order[]>();
@@ -95,16 +111,16 @@ export default function HistoryScreen() {
       orders: dayOrders,
       dayTotal: dayOrders.reduce((s, o) => s + o.total, 0),
     }));
-  }, [orders, search, filter, labelFilter, orderLabelsMap, todayStr, yesterdayStr]);
+  }, [orders, search, filters, orderLabelsMap, todayStr, yesterdayStr, dateLocale, dayHeaderFormat]);
 
   const totalRevenue = groups.reduce((s, g) => s + g.dayTotal, 0);
   const totalCount = groups.reduce((s, g) => s + g.orders.length, 0);
 
-  const FILTERS: { key: FilterKey; label: string }[] = [
-    { key: 'all', label: t('history.filterAll') },
-    { key: 'paid', label: t('history.filterPaid') },
-    { key: 'unpaid', label: t('history.filterUnpaid') },
-  ];
+  const activeFilterCount =
+    (filters.period !== 'month' ? 1 : 0) +
+    (filters.paymentStatus !== 'all' ? 1 : 0) +
+    (filters.paymentMethods.length > 0 ? 1 : 0) +
+    (filters.labelIds.length > 0 ? 1 : 0);
 
   return (
     <SafeAreaView className="flex-1 bg-surface dark:bg-surface-dark" edges={[]}>
@@ -132,47 +148,47 @@ export default function HistoryScreen() {
                 </View>
               </View>
 
-              {/* Search */}
-              <View className="flex-row items-center gap-2 bg-surface-elevated dark:bg-surface-elevated-dark border border-border dark:border-border-dark rounded-xl px-3 py-2.5 mb-3">
-                <IconSymbol name="magnifyingglass" size={16} color={iconColor} />
-                <AppTextInput
-                  value={search}
-                  onChangeText={setSearch}
-                  placeholder={t('history.searchPlaceholder')}
-                  placeholderTextColor="#9A8A80"
-                  className="flex-1 text-base text-content dark:text-content-dark"
-                />
-                {search.length > 0 && (
-                  <Pressable onPress={() => setSearch('')} className="active:opacity-60">
-                    <IconSymbol name="xmark.circle.fill" size={16} color={iconColor} />
+              {/* Barra de búsqueda + botón filtros */}
+              <View className="flex-row items-center gap-2 mb-3">
+                <View className="flex-1 flex-row items-center gap-2 bg-surface-elevated dark:bg-surface-elevated-dark border border-border dark:border-border-dark rounded-xl px-3 py-2.5">
+                  <IconSymbol name="magnifyingglass" size={16} color={iconColor} />
+                  <AppTextInput
+                    value={search}
+                    onChangeText={setSearch}
+                    placeholder={t('history.searchPlaceholder')}
+                    placeholderTextColor="#9A8A80"
+                    className="flex-1 text-base text-content dark:text-content-dark"
+                  />
+                  {search.length > 0 && (
+                    <Pressable onPress={() => setSearch('')} className="active:opacity-60">
+                      <IconSymbol name="xmark.circle.fill" size={16} color={iconColor} />
+                    </Pressable>
+                  )}
+                </View>
+
+                {/* Botón filtros */}
+                <Pressable
+                  onPress={() => setShowFilters(true)}
+                  style={activeFilterCount > 0 ? { backgroundColor: color } : undefined}
+                  className={`w-11 h-11 rounded-xl items-center justify-center border ${activeFilterCount > 0 ? 'border-transparent' : 'bg-surface-elevated dark:bg-surface-elevated-dark border-border dark:border-border-dark'}`}
+                >
+                  <IconSymbol name="line.3.horizontal.decrease" size={18} color={activeFilterCount > 0 ? '#fff' : iconColor} />
+                </Pressable>
+
+                {/* X para limpiar filtros */}
+                {activeFilterCount > 0 && (
+                  <Pressable
+                    onPress={() => setFilters(DEFAULT_FILTERS)}
+                    className="w-11 h-11 rounded-xl items-center justify-center border bg-surface-elevated dark:bg-surface-elevated-dark border-border dark:border-border-dark active:opacity-60"
+                  >
+                    <IconSymbol name="xmark" size={16} color={iconColor} />
                   </Pressable>
                 )}
               </View>
-
-              {/* Filter chips */}
-              <View className="flex-row gap-2 mb-4">
-                {FILTERS.map(({ key, label }) => {
-                  const active = filter === key;
-                  return (
-                    <Pressable
-                      key={key}
-                      onPress={() => setFilter(key)}
-                      style={active ? { backgroundColor: color, borderColor: color } : undefined}
-                      className={`rounded-full px-3.5 py-1.5 border ${active ? 'border-transparent' : 'bg-surface-elevated dark:bg-surface-elevated-dark border-border dark:border-border-dark'}`}
-                    >
-                      <Text className={`text-sm font-semibold ${active ? 'text-white' : 'text-content dark:text-content-dark'}`}>{label}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-
-              {/* Label filter */}
-              <LabelFilterBar labels={labels} selectedIds={labelFilter} onChange={setLabelFilter} label={t('history.filterLabel')} />
             </View>
           }
           renderItem={({ item: group }) => (
             <View className="mb-5">
-              {/* Day header */}
               <View className="flex-row items-baseline justify-between px-1 mb-2">
                 <Text className="text-xs font-bold text-content dark:text-content-dark capitalize tracking-wider">
                   {group.label}
@@ -182,7 +198,6 @@ export default function HistoryScreen() {
                 </Text>
               </View>
 
-              {/* Orders */}
               <View className="bg-surface-elevated dark:bg-surface-elevated-dark border border-border dark:border-border-dark rounded-2xl overflow-hidden">
                 {group.orders.map((order, index) => (
                   <HistoryRow
@@ -211,6 +226,13 @@ export default function HistoryScreen() {
           }
         />
       )}
+
+      <HistoryFilterModal
+        visible={showFilters}
+        filters={filters}
+        onChange={setFilters}
+        onClose={() => setShowFilters(false)}
+      />
     </SafeAreaView>
   );
 }

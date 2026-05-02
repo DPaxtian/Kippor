@@ -7,3 +7,6 @@
 - El usuario pedirá cada operación git por separado
 - Al hacer merge a main, regresar a `dev` después
 - Bumpar versión en `app.json` siguiendo semver con cada commit
+
+## UI / Implementación
+- Toda feature nueva debe implementarse SIEMPRE en modo teléfono (app/(tabs)/ y screens individuales) Y en modo tablet (components/tablet/TabletLayout.tsx) — sin excepción

@@ -70,7 +70,7 @@ export function OnboardingModal({ visible }: { visible: boolean }) {
     const trimmed = nameInput.trim();
     if (trimmed) setBusinessName(trimmed);
     completeOnboarding();
-    if (goToCatalog) router.push('/(tabs)/catalog');
+    if (goToCatalog) router.replace('/(tabs)/catalog');
   }
 
   const steps = [
