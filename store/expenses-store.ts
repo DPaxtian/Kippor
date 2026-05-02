@@ -8,6 +8,7 @@ import {
   deleteExpense,
   type ExpenseFilters,
 } from '@/db/expenses';
+import { getLabelsByExpenseId } from '@/db/labels';
 import type {
   CreateExpenseInput,
   Expense,
@@ -38,7 +39,13 @@ export const useExpensesStore = create<ExpensesState>((set) => ({
     try {
       const db = await getDatabase();
       const filters: ExpenseFilters = { from, to };
-      const expenses = await getExpenses(db, filters);
+      const rows = await getExpenses(db, filters);
+      const expenses = await Promise.all(
+        rows.map(async (e) => {
+          e.labels = await getLabelsByExpenseId(db, e.id);
+          return e;
+        })
+      );
       set({ expenses, isLoading: false });
     } catch (e) {
       set({ error: String(e), isLoading: false });

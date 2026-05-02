@@ -13,12 +13,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CategoryPicker } from '@/components/expenses/CategoryPicker';
+import { LabelPicker } from '@/components/labels/LabelPickerSheet';
 import { AppTextInput } from '@/components/ui/AppTextInput';
 import { ModalHandle } from '@/components/ui/ModalHandle';
 import { useAccentColor } from '@/hooks/use-accent-color';
 import { useCurrency } from '@/hooks/use-currency';
 import { useDateFormat, useDateLocale } from '@/hooks/use-locale';
 import { useExpensesStore } from '@/store/expenses-store';
+import { useLabelsStore } from '@/store/labels-store';
 import { useUIStore } from '@/store/ui-store';
 import type { ExpenseCategory } from '@/types';
 import { formatDate } from '@/utils/format';
@@ -32,11 +34,13 @@ export default function NewExpenseScreen() {
   const dateFormat = useDateFormat();
   const navigation = useNavigation();
   const { createExpense, fetchExpensesByRange } = useExpensesStore();
+  const { fetchLabels } = useLabelsStore();
 
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState<ExpenseCategory>('supplies');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [notes, setNotes] = useState('');
+  const [labelIds, setLabelIds] = useState<number[]>([]);
   const [saving, setSaving] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [tempDate, setTempDate] = useState(new Date());
@@ -52,6 +56,7 @@ export default function NewExpenseScreen() {
         </Pressable>
       ),
     });
+    fetchLabels();
   }, [navigation, color]);
 
   async function handleSave() {
@@ -67,6 +72,7 @@ export default function NewExpenseScreen() {
         category,
         date: selectedDate.toISOString(),
         notes: notes.trim() || null,
+        labelIds,
       });
       router.back();
     } catch {
@@ -130,7 +136,7 @@ export default function NewExpenseScreen() {
           </View>
 
           {/* Notas */}
-          <View className="mx-4 mb-6">
+          <View className="mx-4 mb-4">
             <Text className="text-xs font-semibold text-content-muted dark:text-content-muted-dark uppercase tracking-wide mb-2">
               {t('expenseForm.notesLabel')}
             </Text>
@@ -143,6 +149,14 @@ export default function NewExpenseScreen() {
               value={notes}
               onChangeText={setNotes}
             />
+          </View>
+
+          {/* Etiquetas */}
+          <View className="mx-4 mb-6">
+            <Text className="text-xs font-semibold text-content-muted dark:text-content-muted-dark uppercase tracking-wide mb-2">
+              {t('orders.labels')}
+            </Text>
+            <LabelPicker selectedIds={labelIds} onChange={setLabelIds} />
           </View>
 
           {/* Guardar */}

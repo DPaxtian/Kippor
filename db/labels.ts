@@ -49,3 +49,25 @@ export async function setOrderLabels(db: SQLiteDatabase, orderId: number, labelI
     }
   });
 }
+
+export async function getLabelsByExpenseId(db: SQLiteDatabase, expenseId: number): Promise<Label[]> {
+  return db.getAllAsync<Label>(
+    `SELECT l.* FROM labels l
+     INNER JOIN expense_labels el ON el.label_id = l.id
+     WHERE el.expense_id = ?
+     ORDER BY l.name ASC`,
+    [expenseId]
+  );
+}
+
+export async function setExpenseLabels(db: SQLiteDatabase, expenseId: number, labelIds: number[]): Promise<void> {
+  await db.withTransactionAsync(async () => {
+    await db.runAsync('DELETE FROM expense_labels WHERE expense_id = ?', [expenseId]);
+    for (const labelId of labelIds) {
+      await db.runAsync(
+        'INSERT INTO expense_labels (expense_id, label_id) VALUES (?, ?)',
+        [expenseId, labelId]
+      );
+    }
+  });
+}

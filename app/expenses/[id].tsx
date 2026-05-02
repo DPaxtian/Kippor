@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LabelChip } from '@/components/labels/LabelChip';
 import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_COLORS } from '@/constants/expense-categories';
 import { useAccentColor } from '@/hooks/use-accent-color';
 import { useCurrency } from '@/hooks/use-currency';
@@ -90,11 +91,24 @@ export default function ExpenseDetailScreen() {
           </View>
 
           {selectedExpense.notes && (
-            <View className="px-4 py-3">
+            <View className="px-4 py-3 border-b border-border dark:border-border-dark">
               <Text className="text-xs text-content-muted dark:text-content-muted-dark uppercase tracking-wide mb-1">
                 {t('expenseForm.notesLabel').replace(' (opcional)', '')}
               </Text>
               <Text className="text-base text-content dark:text-content-dark">{selectedExpense.notes}</Text>
+            </View>
+          )}
+
+          {selectedExpense.labels && selectedExpense.labels.length > 0 && (
+            <View className="px-4 py-3">
+              <Text className="text-xs text-content-muted dark:text-content-muted-dark uppercase tracking-wide mb-2">
+                {t('orders.labels')}
+              </Text>
+              <View className="flex-row flex-wrap gap-2">
+                {selectedExpense.labels.map((label) => (
+                  <LabelChip key={label.id} label={label} size="md" />
+                ))}
+              </View>
             </View>
           )}
         </View>

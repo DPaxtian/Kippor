@@ -77,6 +77,9 @@ export interface SalesSummary {
   pendingDeliveries: number;
   totalAdvancePayments: number; // suma de adelantos recibidos en el período
   pendingBalance: number;       // saldo pendiente de cobrar (unpaid total - adelantos)
+  cashRevenue: number;
+  cardRevenue: number;
+  transferRevenue: number;
 }
 
 export interface ProductStat {
@@ -106,10 +109,11 @@ export interface Expense {
   date: string;        // ISO 8601 — fecha del gasto (no del registro)
   notes: string | null;
   created_at: string;  // ISO 8601
+  labels?: Label[];
 }
 
-export type CreateExpenseInput = Omit<Expense, 'id' | 'created_at'>;
-export type UpdateExpenseInput = Partial<Omit<Expense, 'id' | 'created_at'>>;
+export type CreateExpenseInput = Omit<Expense, 'id' | 'created_at' | 'labels'> & { labelIds?: number[] };
+export type UpdateExpenseInput = Partial<Omit<Expense, 'id' | 'created_at' | 'labels'>> & { labelIds?: number[] };
 
 export interface ExpenseCategoryStat {
   category: ExpenseCategory;

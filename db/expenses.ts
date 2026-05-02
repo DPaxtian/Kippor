@@ -7,6 +7,7 @@ import type {
   ExpenseSummary,
   UpdateExpenseInput,
 } from '@/types';
+import { getLabelsByExpenseId, setExpenseLabels } from './labels';
 
 export interface ExpenseFilters {
   from?: string;       // ISO 8601
@@ -43,26 +44,40 @@ export async function getExpenseById(
   db: SQLiteDatabase,
   id: number
 ): Promise<Expense | null> {
-  return db.getFirstAsync<Expense>('SELECT * FROM expenses WHERE id = ?', [id]);
+  const expense = await db.getFirstAsync<Expense>('SELECT * FROM expenses WHERE id = ?', [id]);
+  if (!expense) return null;
+  expense.labels = await getLabelsByExpenseId(db, expense.id);
+  return expense;
 }
 
 export async function getExpenseSummary(
   db: SQLiteDatabase,
   from: string,
-  to: string
+  to: string,
+  labelIds?: number[]
 ): Promise<ExpenseSummary> {
+  const hasLabels = labelIds && labelIds.length > 0;
+  const labelJoin = hasLabels
+    ? 'INNER JOIN expense_labels _el ON _el.expense_id = e.id'
+    : '';
+  const labelCond = hasLabels
+    ? `AND _el.label_id IN (${labelIds!.map(() => '?').join(', ')})`
+    : '';
+  const labelParam = hasLabels ? labelIds! : [];
+
   const [totalRow, categoryRows] = await Promise.all([
     db.getFirstAsync<{ total: number | null }>(
-      `SELECT SUM(amount) AS total FROM expenses WHERE date >= ? AND date <= ?`,
-      [from, to]
+      `SELECT SUM(e.amount) AS total FROM expenses e ${labelJoin}
+       WHERE e.date >= ? AND e.date <= ? ${labelCond}`,
+      [from, to, ...labelParam]
     ),
     db.getAllAsync<{ category: ExpenseCategory; total: number }>(
-      `SELECT category, SUM(amount) AS total
-       FROM expenses
-       WHERE date >= ? AND date <= ?
-       GROUP BY category
+      `SELECT e.category, SUM(e.amount) AS total
+       FROM expenses e ${labelJoin}
+       WHERE e.date >= ? AND e.date <= ? ${labelCond}
+       GROUP BY e.category
        ORDER BY total DESC`,
-      [from, to]
+      [from, to, ...labelParam]
     ),
   ]);
 
@@ -89,7 +104,11 @@ export async function createExpense(
       new Date().toISOString(),
     ]
   );
-  return result.lastInsertRowId;
+  const id = result.lastInsertRowId;
+  if (data.labelIds && data.labelIds.length > 0) {
+    await setExpenseLabels(db, id, data.labelIds);
+  }
+  return id;
 }
 
 export async function updateExpense(
@@ -112,6 +131,9 @@ export async function updateExpense(
       id,
     ]
   );
+  if (data.labelIds !== undefined) {
+    await setExpenseLabels(db, id, data.labelIds);
+  }
 }
 
 export async function deleteExpense(

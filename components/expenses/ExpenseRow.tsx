@@ -1,5 +1,6 @@
 import { Pressable, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { LabelChip } from '@/components/labels/LabelChip';
 import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_COLORS } from '@/constants/expense-categories';
 import { useDateLocale } from '@/hooks/use-locale';
 import type { Expense, ExpenseCategory } from '@/types';
@@ -43,6 +44,13 @@ export function ExpenseRow({ expense, fmt, onPress, isLast = false }: ExpenseRow
           <Text className="text-xs text-content-muted dark:text-content-muted-dark mt-0.5">
             {formatDateTime(expense.date, dateLocale)}
           </Text>
+        )}
+        {expense.labels && expense.labels.length > 0 && (
+          <View className="flex-row flex-wrap gap-1 mt-1">
+            {expense.labels.map((label) => (
+              <LabelChip key={label.id} label={label} size="sm" />
+            ))}
+          </View>
         )}
       </View>
 
